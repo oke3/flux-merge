@@ -33,13 +33,15 @@ export class Physics {
    */
   public static snapToGrid(node: Node) {
     const cellSize = 600 / GAME_CONFIG.GRID_SIZE;
-    const gridX = Math.round(node.x / cellSize);
-    const gridY = Math.round(node.y / cellSize);
-    
+    const gridX = Math.floor(node.x / cellSize);
+    const gridY = Math.floor(node.y / cellSize);
+
     // Clamp to grid boundaries
     const clampedX = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, gridX));
     const clampedY = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, gridY));
-    
+
+    node.gridX = clampedX;
+    node.gridY = clampedY;
     node.targetX = clampedX * cellSize + cellSize / 2;
     node.targetY = clampedY * cellSize + cellSize / 2;
   }
