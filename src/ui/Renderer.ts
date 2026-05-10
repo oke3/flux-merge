@@ -1,0 +1,85 @@
+import { Node } from '../core/Node';
+import { GAME_CONFIG, COLORS } from '../assets/constants';
+
+export class Renderer {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+
+  constructor(canvasId: string) {
+    this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+    this.ctx = this.canvas.getContext('2d')!;
+  }
+
+  public clear() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  public drawGrid() {
+    const cellSize = this.canvas.width / GAME_CONFIG.GRID_SIZE;
+    this.ctx.strokeStyle = COLORS.GLASS_BORDER;
+    this.ctx.lineWidth = 1;
+
+    for (let i = 0; i <= GAME_CONFIG.GRID_SIZE; i++) {
+      // Vertical lines
+      this.ctx.beginPath();
+      this.ctx.moveTo(i * cellSize, 0);
+      this.ctx.lineTo(i * cellSize, this.canvas.height);
+      this.ctx.stroke();
+
+      // Horizontal lines
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, i * cellSize);
+      this.ctx.lineTo(this.canvas.width, i * cellSize);
+      this.ctx.stroke();
+    }
+  }
+
+  public drawNode(node: Node) {
+    const { x, y, radius, color, scale } = node;
+
+    this.ctx.save();
+    this.ctx.translate(x, y);
+    this.ctx.scale(scale, scale);
+    this.ctx.translate(-x, -y);
+
+    // Outer Glow
+    const glow = this.ctx.createRadialGradient(x, y, radius * 0.8, x, y, radius * 1.5);
+    glow.addColorStop(0, color);
+    glow.addColorStop(1, 'transparent');
+
+    this.ctx.fillStyle = glow;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, radius * 1.5, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Main Core
+    const core = this.ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, radius * 0.1, x, y, radius);
+    core.addColorStop(0, '#FFFFFF');
+    core.addColorStop(0.4, color);
+    core.addColorStop(1, color);
+
+    this.ctx.fillStyle = core;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Glossy highlight
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    this.ctx.beginPath();
+    this.ctx.arc(x - radius * 0.3, y - radius * 0.3, radius * 0.2, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    this.ctx.restore();
+  }
+
+  public drawRipple(ripple: any) {
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.arc(ripple.x, ripple.y, ripple.radius, 0, Math.PI * 2);
+    this.ctx.strokeStyle = ripple.color;
+    this.ctx.globalAlpha = ripple.opacity;
+    this.ctx.lineWidth = 3;
+    this.ctx.stroke();
+    this.ctx.restore();
+  }
+}
