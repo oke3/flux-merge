@@ -70,8 +70,8 @@ export class Overlay {
     document.body.style.background = theme.background;
 
     document.querySelectorAll('.glass-panel').forEach(el => {
-      el.style.background = theme.glassBg;
-      el.style.borderColor = theme.glassBorder;
+      (el as HTMLElement).style.background = theme.glassBg;
+      (el as HTMLElement).style.borderColor = theme.glassBorder;
     });
 
     window.dispatchEvent(new CustomEvent('themeChanged', { detail: themeId }));

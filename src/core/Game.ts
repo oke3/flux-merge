@@ -8,7 +8,7 @@ import { Input } from '../ui/Input';
 import { Physics } from './Physics';
 import { Ripple } from './Ripple';
 import { Overlay } from '../ui/Overlay';
-import { GAME_CONFIG, NODE_LEVELS, THEMES } from '../assets/constants';
+import { GAME_CONFIG, THEMES } from '../assets/constants';
 
 export class Game {
   private nodes: Node[] = [];
