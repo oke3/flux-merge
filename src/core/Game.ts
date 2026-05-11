@@ -142,6 +142,13 @@ export class Game {
   private update() {
     if (!this.isPlaying || this.isGameOver || this.isWin) return;
 
+    // Periodic spawn
+    const now = performance.now();
+    if (now - this.lastSpawnTime > this.SPAWN_INTERVAL) {
+      this.spawnNode();
+      this.lastSpawnTime = now;
+    }
+
     // Apply magnetic attraction
     for (let i = 0; i < this.nodes.length; i++) {
       for (let j = i + 1; j < this.nodes.length; j++) {
