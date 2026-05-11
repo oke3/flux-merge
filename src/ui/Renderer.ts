@@ -1,5 +1,5 @@
 import { Node } from '../core/Node';
-import { GAME_CONFIG, COLORS, NODE_LEVELS } from '../assets/constants';
+import { GAME_CONFIG, COLORS, NODE_LEVELS, NodeType } from '../assets/constants';
 
 export class Renderer {
   private canvas: HTMLCanvasElement;
@@ -42,42 +42,88 @@ export class Renderer {
     this.ctx.scale(scale, scale);
     this.ctx.translate(-x, -y);
 
-    // Outer Glow
-    const glow = this.ctx.createRadialGradient(x, y, radius * 0.8, x, y, radius * 1.5);
-    glow.addColorStop(0, color);
-    glow.addColorStop(1, 'transparent');
+    if (node.type === NodeType.VOID) {
+      // Void Node Visuals: Black Hole
+      const voidGlow = this.ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * 2);
+      voidGlow.addColorStop(0, 'rgba(0, 0, 0, 1)');
+      voidGlow.addColorStop(0.5, 'rgba(50, 0, 100, 0.3)');
+      voidGlow.addColorStop(1, 'transparent');
 
-    this.ctx.fillStyle = glow;
-    this.ctx.beginPath();
-    this.ctx.arc(x, y, radius * 1.5, 0, Math.PI * 2);
-    this.ctx.fill();
+      this.ctx.fillStyle = voidGlow;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
+      this.ctx.fill();
 
-    // Main Core
-    const core = this.ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, radius * 0.1, x, y, radius);
-    core.addColorStop(0, '#FFFFFF');
-    core.addColorStop(0.4, color);
-    core.addColorStop(1, color);
+      this.ctx.fillStyle = '#000000';
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius * 0.8, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      // Event Horizon Ring
+      this.ctx.strokeStyle = 'rgba(150, 100, 255, 0.5)';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius * 0.9, 0, Math.PI * 2);
+      this.ctx.stroke();
 
-    this.ctx.fillStyle = core;
-    this.ctx.beginPath();
-    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-    this.ctx.fill();
+    } else if (node.type === NodeType.STAR) {
+      // Star Node Visuals: Shimmering Gold
+      const starGlow = this.ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * 2);
+      starGlow.addColorStop(0, 'rgba(255, 215, 0, 0.8)');
+      starGlow.addColorStop(1, 'transparent');
 
-    // Glossy highlight
-    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    this.ctx.beginPath();
-    this.ctx.arc(x - radius * 0.3, y - radius * 0.3, radius * 0.2, 0, Math.PI * 2);
-    this.ctx.fill();
+      this.ctx.fillStyle = starGlow;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
+      this.ctx.fill();
 
-    // Accessibility Symbol
-    const symbol = NODE_LEVELS[node.level]?.symbol || '';
-    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    this.ctx.font = `bold ${radius * 0.8}px Inter, system-ui, sans-serif`;
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    this.ctx.shadowBlur = 4;
-    this.ctx.fillText(symbol, x, y);
+      this.ctx.fillStyle = '#FFD700';
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Star Symbol
+      this.ctx.fillStyle = 'white';
+      this.ctx.font = `bold ${radius * 0.9}px Inter, system-ui, sans-serif`;
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText('★', x, y);
+
+    } else {
+      // Standard Node Visuals
+      const glow = this.ctx.createRadialGradient(x, y, radius * 0.8, x, y, radius * 1.5);
+      glow.addColorStop(0, color);
+      glow.addColorStop(1, 'transparent');
+
+      this.ctx.fillStyle = glow;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius * 1.5, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      const core = this.ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, radius * 0.1, x, y, radius);
+      core.addColorStop(0, '#FFFFFF');
+      core.addColorStop(0.4, color);
+      core.addColorStop(1, color);
+
+      this.ctx.fillStyle = core;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      this.ctx.beginPath();
+      this.ctx.arc(x - radius * 0.3, y - radius * 0.3, radius * 0.2, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      const symbol = NODE_LEVELS[node.level]?.symbol || '';
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      this.ctx.font = `bold ${radius * 0.8}px Inter, system-ui, sans-serif`;
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      this.ctx.shadowBlur = 4;
+      this.ctx.fillText(symbol, x, y);
+    }
 
     this.ctx.restore();
   }

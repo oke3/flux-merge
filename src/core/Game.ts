@@ -9,7 +9,7 @@ import { Physics } from './Physics';
 import { Ripple } from './Ripple';
 import { Overlay } from '../ui/Overlay';
 import { AudioEngine } from '../assets/AudioEngine';
-import { GAME_CONFIG, THEMES } from '../assets/constants';
+import { GAME_CONFIG, THEMES, NodeType } from '../assets/constants';
 
 interface Point {
   x: number;
@@ -136,7 +136,13 @@ export class Game {
     const x = cell.x * cellSize + cellSize / 2;
     const y = cell.y * cellSize + cellSize / 2;
 
-    const node = new Node(x, y, cell.x, cell.y);
+    // Determine node type
+    let type: NodeType = NodeType.STANDARD;
+    if (Math.random() < GAME_CONFIG.SPECIAL_NODE_CHANCE) {
+      type = Math.random() > 0.5 ? NodeType.VOID : NodeType.STAR;
+    }
+
+    const node = new Node(x, y, cell.x, cell.y, 1, type);
     this.updateNodeColor(node);
     this.nodes.push(node);
   }
@@ -146,8 +152,14 @@ export class Game {
   }
 
   private updateNodeColor(node: Node) {
-    const theme = THEMES[this.currentTheme];
-    node.color = theme.levels[node.level];
+    if (node.type === NodeType.VOID) {
+      node.color = '#000000'; // Black hole
+    } else if (node.type === NodeType.STAR) {
+      node.color = '#FFD700'; // Golden Star
+    } else {
+      const theme = THEMES[this.currentTheme];
+      node.color = theme.levels[node.level];
+    }
   }
 
   private update() {
@@ -171,7 +183,36 @@ export class Game {
     this.ripples.forEach(ripple => ripple.update());
     this.ripples = this.ripples.filter(r => !r.isDead);
     
+    this.handleVoidConsumption();
     this.checkMerges();
+  }
+
+  private handleVoidConsumption() {
+    for (let i = 0; i < this.nodes.length; i++) {
+      const voidNode = this.nodes[i];
+      if (voidNode.type !== NodeType.VOID) continue;
+
+      for (let j = 0; j < this.nodes.length; j++) {
+        if (i === j) continue;
+        const other = this.nodes[j];
+        if (other.type === NodeType.VOID) continue;
+
+        if (this.getDistance(voidNode, other) < GAME_CONFIG.VOID_CONSUMPTION_RADIUS) {
+          console.log(`[Game] Void consumed Lvl ${other.level} node.`);
+          this.ripples.push(new Ripple(other.x, other.y, '#000000', GAME_CONFIG.PULSE_RADIUS * 0.5));
+          this.audio.playMerge(1); // Small thud sound
+          
+          // Haptic: Glitchy consumption tap
+          if ('vibrate' in navigator) {
+            navigator.vibrate([30, 50, 30]);
+          }
+          
+          this.nodes = this.nodes.filter((_, idx) => idx !== j);
+          // Break inner loop to avoid index shifts during removal
+          break; 
+        }
+      }
+    }
   }
 
   private checkMerges() {
@@ -180,7 +221,13 @@ export class Game {
         const a = this.nodes[i];
         const b = this.nodes[j];
 
-        if (a.level === b.level && this.getDistance(a, b) < a.radius * 2) {
+        // Standard merge OR Star wildcard merge
+        const canMerge = (a.level === b.level) || (a.type === NodeType.STAR) || (b.type === NodeType.STAR);
+        
+        if (canMerge && this.getDistance(a, b) < a.radius * 2) {
+          // Void nodes cannot merge, they only consume
+          if (a.type === NodeType.VOID || b.type === NodeType.VOID) continue;
+          
           this.mergeNodes(i, j);
           return; 
         }
@@ -198,6 +245,12 @@ export class Game {
     if (newLevel > 5) {
       this.isWin = true;
       this.audio.playSingularity();
+      
+      // Haptic: Victory rumble
+      if ('vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200]);
+      }
+      
       this.overlay.showWin();
       return;
     }
@@ -219,6 +272,11 @@ export class Game {
     mergedNode.scale = 1.6;
     this.ripples.push(new Ripple(newX, newY, mergedNode.color, GAME_CONFIG.PULSE_RADIUS));
     this.audio.playMerge(newLevel);
+
+    // Haptic: Merge pulse (stronger for higher levels)
+    if ('vibrate' in navigator) {
+      navigator.vibrate(newLevel >= 4 ? 100 : 50);
+    }
 
     this.score += mergedNode.scoreValue;
     this.overlay.updateScore(this.score);

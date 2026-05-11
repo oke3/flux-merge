@@ -1,3 +1,11 @@
+export const NodeType = {
+  STANDARD: 'STANDARD',
+  VOID: 'VOID',
+  STAR: 'STAR',
+} as const;
+
+export type NodeType = typeof NodeType[keyof typeof NodeType];
+
 export const GAME_CONFIG = {
   CANVAS_SIZE: 600,
   GRID_SIZE: 6,
@@ -5,6 +13,8 @@ export const GAME_CONFIG = {
   MAGNETIC_PULL_STRENGTH: 0.05,
   PULSE_RADIUS: 150,
   TICK_RATE: 60,
+  VOID_CONSUMPTION_RADIUS: 80,
+  SPECIAL_NODE_CHANCE: 0.1, // 10% chance to spawn a special node
 };
 
 export interface NodeLevelInfo {

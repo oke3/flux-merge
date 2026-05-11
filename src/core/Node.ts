@@ -1,4 +1,4 @@
-import { NODE_LEVELS, GAME_CONFIG } from '../assets/constants';
+import { NODE_LEVELS, GAME_CONFIG, NodeType } from '../assets/constants';
 
 export class Node {
   public x: number;
@@ -7,13 +7,14 @@ export class Node {
   public gridY: number;
   public level: number;
   public radius: number;
+  public type: NodeType;
   public isDragging: boolean = false;
   public targetX: number;
   public targetY: number;
   public scale: number = 1;
   public color: string = '#FFFFFF';
 
-  constructor(x: number, y: number, gridX: number, gridY: number, level: number = 1) {
+  constructor(x: number, y: number, gridX: number, gridY: number, level: number = 1, type: NodeType = NodeType.STANDARD) {
     this.x = x;
     this.y = y;
     this.gridX = gridX;
@@ -21,6 +22,7 @@ export class Node {
     this.targetX = x;
     this.targetY = y;
     this.level = level;
+    this.type = type;
     this.radius = GAME_CONFIG.NODE_RADIUS;
   }
 
