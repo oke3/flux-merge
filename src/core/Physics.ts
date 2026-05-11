@@ -1,3 +1,7 @@
+/* 
+ * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
+ * Proprietary and confidential. Reverse engineering prohibited.
+ */
 import { Node } from '../core/Node';
 import { GAME_CONFIG } from '../assets/constants';
 

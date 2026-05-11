@@ -1,3 +1,7 @@
+/* 
+ * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
+ * Proprietary and confidential. Reverse engineering prohibited.
+ */
 /**
  * Flux Merge Core Game Engine
  * Version: 1.0.1 - Stability Update

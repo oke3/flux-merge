@@ -91,4 +91,4 @@ To prevent type regressions and runtime crashes, the project is gated by a stric
 ---
 
 ## 📜 License
-MIT
+Proprietary. All rights reserved by Ground Zero LLC. Use of this source code is strictly prohibited without a written licensing contract. See the `LICENSE` file for full details.
