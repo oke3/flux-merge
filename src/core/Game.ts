@@ -28,7 +28,14 @@ export class Game {
   private isPlaying: boolean = false;
   private animationFrameId: number | null = null;
   private lastSpawnTime: number = 0;
-  private readonly SPAWN_INTERVAL = 4000;
+  private readonly BASE_SPAWN_INTERVAL = 4000;
+  private readonly MIN_SPAWN_INTERVAL = 1200;
+  private readonly MAX_DIFFICULTY_SCORE = 2000;
+
+  private get currentSpawnInterval(): number {
+    const reduction = (this.score / this.MAX_DIFFICULTY_SCORE) * (this.BASE_SPAWN_INTERVAL - this.MIN_SPAWN_INTERVAL);
+    return Math.max(this.MIN_SPAWN_INTERVAL, this.BASE_SPAWN_INTERVAL - reduction);
+  }
 
   constructor() {
     this.renderer = new Renderer('gameCanvas');
@@ -144,7 +151,7 @@ export class Game {
 
     // Periodic spawn
     const now = performance.now();
-    if (now - this.lastSpawnTime > this.SPAWN_INTERVAL) {
+    if (now - this.lastSpawnTime > this.currentSpawnInterval) {
       this.spawnNode();
       this.lastSpawnTime = now;
     }
