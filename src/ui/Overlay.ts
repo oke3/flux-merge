@@ -31,11 +31,7 @@ export class Overlay {
 
   private setupThemeSelector() {
     const container = document.createElement('div');
-    container.className = 'glass-panel';
-    container.style.position = 'absolute';
-    container.style.top = '20px';
-    container.style.right = '20px';
-    container.style.pointerEvents = 'auto';
+    container.className = 'glass-panel theme-selector';
 
     const label = document.createElement('span');
     label.innerText = 'Theme: ';

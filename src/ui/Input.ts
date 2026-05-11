@@ -2,12 +2,26 @@ import { Node } from '../core/Node';
 
 export class Input {
   private canvas: HTMLCanvasElement;
-  private onNodeDrag: (node: Node, x: number, y: number) => void;
+  private findNode: (x: number, y: number) => Node | null;
+  private onDragStart: (node: Node) => void;
+  private onDragMove: (node: Node, x: number, y: number) => void;
+  private onDragEnd: (node: Node) => void;
   private draggedNode: Node | null = null;
 
-  constructor(canvasId: string, onNodeDrag: (node: Node, x: number, y: number) => void) {
+  constructor(
+    canvasId: string, 
+    config: {
+      findNode: (x: number, y: number) => Node | null,
+      onDragStart: (node: Node) => void,
+      onDragMove: (node: Node, x: number, y: number) => void,
+      onDragEnd: (node: Node) => void,
+    }
+  ) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
-    this.onNodeDrag = onNodeDrag;
+    this.findNode = config.findNode;
+    this.onDragStart = config.onDragStart;
+    this.onDragMove = config.onDragMove;
+    this.onDragEnd = config.onDragEnd;
     this.setupListeners();
   }
 
@@ -25,7 +39,12 @@ export class Input {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    this.findNodeAt(x, y);
+    
+    const node = this.findNode(x, y);
+    if (node) {
+      this.draggedNode = node;
+      this.onDragStart(node);
+    }
   };
 
   private handleMouseMove = (e: MouseEvent) => {
@@ -33,11 +52,14 @@ export class Input {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    this.onNodeDrag(this.draggedNode, x, y);
+    this.onDragMove(this.draggedNode, x, y);
   };
 
   private handleMouseUp = () => {
-    this.draggedNode = null;
+    if (this.draggedNode) {
+      this.onDragEnd(this.draggedNode);
+      this.draggedNode = null;
+    }
   };
 
   private handleTouchStart = (e: TouchEvent) => {
@@ -46,7 +68,12 @@ export class Input {
     const touch = e.touches[0];
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
-    this.findNodeAt(x, y);
+    
+    const node = this.findNode(x, y);
+    if (node) {
+      this.draggedNode = node;
+      this.onDragStart(node);
+    }
   };
 
   private handleTouchMove = (e: TouchEvent) => {
@@ -56,24 +83,13 @@ export class Input {
     const touch = e.touches[0];
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
-    this.onNodeDrag(this.draggedNode, x, y);
+    this.onDragMove(this.draggedNode, x, y);
   };
 
   private handleTouchEnd = () => {
-    this.draggedNode = null;
+    if (this.draggedNode) {
+      this.onDragEnd(this.draggedNode);
+      this.draggedNode = null;
+    }
   };
-
-  private findNodeAt(_x: number, _y: number) {
-    // This will be handled by the Game class via a callback or by passing nodes here.
-    // For now, we'll assume the Game class manages the node list and we just emit the event.
-  }
-
-  // We'll use this method to let Game.ts tell Input.ts which node is being dragged
-  public setDraggedNode(node: Node | null) {
-    this.draggedNode = node;
-  }
-
-  public getDraggedNode(): Node | null {
-    return this.draggedNode;
-  }
 }

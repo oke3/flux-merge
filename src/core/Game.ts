@@ -10,6 +10,11 @@ import { Ripple } from './Ripple';
 import { Overlay } from '../ui/Overlay';
 import { GAME_CONFIG, THEMES } from '../assets/constants';
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 export class Game {
   private nodes: Node[] = [];
   private ripples: Ripple[] = [];
@@ -22,14 +27,24 @@ export class Game {
   private isGameOver: boolean = false;
   private isWin: boolean = false;
   private isPlaying: boolean = false;
+  private animationFrameId: number | null = null;
+  private lastSpawnTime: number = 0;
+  private readonly SPAWN_INTERVAL = 4000;
 
   constructor() {
     this.renderer = new Renderer('gameCanvas');
-    this.input = new Input('gameCanvas', (node, x, y) => this.handleNodeDrag(node, x, y));
     this.overlay = new Overlay();
     
-    window.addEventListener('themeChanged', (e: any) => {
-      this.currentTheme = e.detail;
+    this.input = new Input('gameCanvas', {
+      findNode: (x, y) => this.findNodeAt(x, y),
+      onDragStart: (node) => this.handleDragStart(node),
+      onDragMove: (node, x, y) => this.handleDragMove(node, x, y),
+      onDragEnd: (node) => this.handleDragEnd(node),
+    });
+
+    window.addEventListener('themeChanged', (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      this.currentTheme = customEvent.detail;
       this.updateNodeColors();
     });
 
@@ -47,56 +62,35 @@ export class Game {
         this.overlay.hideIntro();
         this.isPlaying = true;
         this.initGame();
-        this.setupInput();
         this.gameLoop();
       };
     }
   }
 
-  private setupInput() {
-    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
-    
-    const handleStart = (e: MouseEvent | TouchEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      let clientX, clientY;
-
-      if ('touches' in e) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      } else {
-        clientX = (e as MouseEvent).clientX;
-        clientY = (e as MouseEvent).clientY;
-      }
-
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
-
-      const node = this.nodes.find(n => this.getDistance({x, y} as any, n) < n.radius * 1.5);
-      if (node) {
-        this.input.setDraggedNode(node);
-        node.isDragging = true;
-      }
-    };
-
-    const handleEnd = () => {
-      this.nodes.forEach(n => {
-        if (n.isDragging) {
-          Physics.snapToGrid(n);
-        }
-        n.isDragging = false;
-      });
-      this.input.setDraggedNode(null);
-    };
-
-    canvas.addEventListener('mousedown', handleStart);
-    canvas.addEventListener('mouseup', handleEnd);
-    canvas.addEventListener('touchstart', handleStart, { passive: false });
-    canvas.addEventListener('touchend', handleEnd);
+  public stop() {
+    this.isPlaying = false;
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
   }
 
-  private handleNodeDrag(node: Node, x: number, y: number) {
+  private findNodeAt(x: number, y: number): Node | null {
+    return this.nodes.find(n => this.getDistance({x, y}, n) < n.radius * 1.5) || null;
+  }
+
+  private handleDragStart(node: Node) {
+    node.isDragging = true;
+  }
+
+  private handleDragMove(node: Node, x: number, y: number) {
     node.targetX = x;
     node.targetY = y;
+  }
+
+  private handleDragEnd(node: Node) {
+    Physics.snapToGrid(node);
+    node.isDragging = false;
   }
 
   private initGame() {
@@ -197,7 +191,11 @@ export class Game {
     const gridX = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(newX / cellSize)));
     const gridY = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(newY / cellSize)));
 
-    const mergedNode = new Node(newX, newY, gridX, gridY, newLevel);
+    // Snap to exact center of the grid cell for deterministic placement
+    const snappedX = gridX * cellSize + cellSize / 2;
+    const snappedY = gridY * cellSize + cellSize / 2;
+
+    const mergedNode = new Node(snappedX, snappedY, gridX, gridY, newLevel);
     this.updateNodeColor(mergedNode);
     
     mergedNode.scale = 1.4;
@@ -218,7 +216,7 @@ export class Game {
     this.spawnNode();
   }
 
-  private getDistance(a: any, b: any): number {
+  private getDistance(a: Point, b: Node): number {
     return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
   }
 
@@ -230,7 +228,13 @@ export class Game {
       this.nodes.forEach(node => this.renderer.drawNode(node));
       this.ripples.forEach(ripple => this.renderer.drawRipple(ripple));
 
-      requestAnimationFrame(() => this.gameLoop());
+      this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
+    } catch (e) {
+      console.error('[Game] Critical loop error:', e);
+    }
+  }
+}
+.gameLoop());
     } catch (e) {
       console.error('[Game] Critical loop error:', e);
     }
