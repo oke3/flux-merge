@@ -6,6 +6,7 @@ export class Overlay {
   private gameOverModal: HTMLElement;
   private winModal: HTMLElement;
   private introScreen: HTMLElement;
+  private comboElement: HTMLElement;
   private customTheme: Theme | null = null;
 
   constructor() {
@@ -27,8 +28,38 @@ export class Overlay {
     this.winModal = document.getElementById('winModal')!;
     this.introScreen = document.getElementById('intro-screen')!;
 
+    // Combo Display
+    this.comboElement = document.createElement('div');
+    this.comboElement.className = 'glass-panel combo-display';
+    this.comboElement.style.position = 'absolute';
+    this.comboElement.style.top = '80px';
+    this.comboElement.style.left = '50%';
+    this.comboElement.style.transform = 'translateX(-50%)';
+    this.comboElement.style.fontSize = '32px';
+    this.comboElement.style.fontWeight = 'bold';
+    this.comboElement.style.color = '#FFD700';
+    this.comboElement.style.display = 'none';
+    this.comboElement.style.transition = 'all 0.2s ease';
+    this.comboElement.style.zIndex = '20';
+    document.querySelector('.overlay')!.appendChild(this.comboElement);
+
     this.loadCustomTheme();
     this.setupThemeSelector();
+  }
+
+  public updateCombo(combo: number) {
+    if (combo <= 1) {
+      this.comboElement.style.display = 'none';
+      return;
+    }
+    this.comboElement.style.display = 'block';
+    this.comboElement.innerText = `COMBO x${combo}`;
+    
+    // Pulse effect
+    this.comboElement.style.transform = 'translateX(-50%) scale(1.2)';
+    setTimeout(() => {
+      this.comboElement.style.transform = 'translateX(-50%) scale(1)';
+    }, 100);
   }
 
   private loadCustomTheme() {

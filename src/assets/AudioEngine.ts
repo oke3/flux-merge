@@ -36,24 +36,36 @@ export class AudioEngine {
     this.playTone(freq, 'sine', duration, 0.3);
   }
 
+  public playFrenzySiren() {
+    this.playTone(440, 'sawtooth', 0.1, 0.1);
+    setTimeout(() => this.playTone(880, 'sawtooth', 0.1, 0.1), 100);
+  }
+
   public playSingularity() {
     this.playTone(60, 'square', 0.8, 0.2);
     this.playTone(120, 'sine', 1.2, 0.3);
   }
 
+  private ambienceOsc: OscillatorNode | null = null;
+
   public playBackgroundAmbience() {
     this.init();
     if (!this.ctx) return;
 
-    const osc = this.ctx.createOscillator();
+    this.ambienceOsc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(80, this.ctx.currentTime);
+    this.ambienceOsc.type = 'sine';
+    this.ambienceOsc.frequency.setValueAtTime(80, this.ctx.currentTime);
     gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
     
-    osc.connect(gain);
+    this.ambienceOsc.connect(gain);
     gain.connect(this.ctx.destination);
-    osc.start();
+    this.ambienceOsc.start();
+  }
+
+  public setAmbiencePitch(multiplier: number) {
+    if (!this.ambienceOsc || !this.ctx) return;
+    this.ambienceOsc.frequency.exponentialRampToValueAtTime(80 * multiplier, this.ctx.currentTime + 0.5);
   }
 }

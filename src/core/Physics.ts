@@ -5,7 +5,7 @@ export class Physics {
   /**
    * Calculates and applies a magnetic pull between two nodes of the same level.
    */
-  public static applyMagneticPull(nodeA: Node, nodeB: Node) {
+  public static applyMagneticPull(nodeA: Node, nodeB: Node, strengthMultiplier: number = 1) {
     if (nodeA.level !== nodeB.level) return;
     if (nodeA.isDragging || nodeB.isDragging) return;
 
@@ -17,7 +17,7 @@ export class Physics {
     const maxPullDistance = (600 / GAME_CONFIG.GRID_SIZE) * 3;
 
     if (distance > 0 && distance < maxPullDistance) {
-      const force = GAME_CONFIG.MAGNETIC_PULL_STRENGTH * (1 - distance / maxPullDistance);
+      const force = GAME_CONFIG.MAGNETIC_PULL_STRENGTH * (1 - distance / maxPullDistance) * strengthMultiplier;
       
       // Move nodes slightly towards each other
       nodeA.targetX += (dx / distance) * force * 10;

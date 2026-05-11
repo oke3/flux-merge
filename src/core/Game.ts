@@ -34,6 +34,14 @@ export class Game {
   private readonly MIN_SPAWN_INTERVAL = 1200;
   private readonly MAX_DIFFICULTY_SCORE = 2000;
 
+  // Combo & Frenzy State
+  private comboCount: number = 1;
+  private comboTimer: number = 0;
+  private isFrenzy: boolean = false;
+  private frenzyTimer: number = 0;
+  private readonly COMBO_TIMEOUT = 1500;
+  private readonly FRENZY_DURATION = 5000;
+
   private get currentSpawnInterval(): number {
     const reduction = (this.score / this.MAX_DIFFICULTY_SCORE) * (this.BASE_SPAWN_INTERVAL - this.MIN_SPAWN_INTERVAL);
     return Math.max(this.MIN_SPAWN_INTERVAL, this.BASE_SPAWN_INTERVAL - reduction);
@@ -136,7 +144,6 @@ export class Game {
     const x = cell.x * cellSize + cellSize / 2;
     const y = cell.y * cellSize + cellSize / 2;
 
-    // Determine node type
     let type: NodeType = NodeType.STANDARD;
     if (Math.random() < GAME_CONFIG.SPECIAL_NODE_CHANCE) {
       type = Math.random() > 0.5 ? NodeType.VOID : NodeType.STAR;
@@ -153,9 +160,9 @@ export class Game {
 
   private updateNodeColor(node: Node) {
     if (node.type === NodeType.VOID) {
-      node.color = '#000000'; // Black hole
+      node.color = '#000000';
     } else if (node.type === NodeType.STAR) {
-      node.color = '#FFD700'; // Golden Star
+      node.color = '#FFD700';
     } else {
       const theme = THEMES[this.currentTheme];
       node.color = theme.levels[node.level];
@@ -165,17 +172,33 @@ export class Game {
   private update() {
     if (!this.isPlaying || this.isGameOver || this.isWin) return;
 
-    // Periodic spawn
     const now = performance.now();
+
+    if (this.comboTimer > 0) {
+      this.comboTimer -= 16.67;
+      if (this.comboTimer <= 0) {
+        this.comboCount = 1;
+        this.overlay.updateCombo(this.comboCount);
+      }
+    }
+
+    if (this.isFrenzy) {
+      this.frenzyTimer -= 16.67;
+      if (this.frenzyTimer <= 0) {
+        this.isFrenzy = false;
+        this.audio.setAmbiencePitch(1);
+      }
+    }
+
     if (now - this.lastSpawnTime > this.currentSpawnInterval) {
       this.spawnNode();
       this.lastSpawnTime = now;
     }
 
-    // Apply magnetic attraction
     for (let i = 0; i < this.nodes.length; i++) {
       for (let j = i + 1; j < this.nodes.length; j++) {
-        Physics.applyMagneticPull(this.nodes[i], this.nodes[j]);
+        const strengthMultiplier = this.isFrenzy ? 2.5 : 1;
+        Physics.applyMagneticPull(this.nodes[i], this.nodes[j], strengthMultiplier);
       }
     }
 
@@ -183,6 +206,10 @@ export class Game {
     this.ripples.forEach(ripple => ripple.update());
     this.ripples = this.ripples.filter(r => !r.isDead);
     
+    if (this.isFrenzy && Math.random() < 0.02) {
+      this.audio.playFrenzySiren();
+    }
+
     this.handleVoidConsumption();
     this.checkMerges();
   }
@@ -198,17 +225,12 @@ export class Game {
         if (other.type === NodeType.VOID) continue;
 
         if (this.getDistance(voidNode, other) < GAME_CONFIG.VOID_CONSUMPTION_RADIUS) {
-          console.log(`[Game] Void consumed Lvl ${other.level} node.`);
           this.ripples.push(new Ripple(other.x, other.y, '#000000', GAME_CONFIG.PULSE_RADIUS * 0.5));
-          this.audio.playMerge(1); // Small thud sound
-          
-          // Haptic: Glitchy consumption tap
+          this.audio.playMerge(1);
           if ('vibrate' in navigator) {
             navigator.vibrate([30, 50, 30]);
           }
-          
           this.nodes = this.nodes.filter((_, idx) => idx !== j);
-          // Break inner loop to avoid index shifts during removal
           break; 
         }
       }
@@ -220,14 +242,9 @@ export class Game {
       for (let j = i + 1; j < this.nodes.length; j++) {
         const a = this.nodes[i];
         const b = this.nodes[j];
-
-        // Standard merge OR Star wildcard merge
         const canMerge = (a.level === b.level) || (a.type === NodeType.STAR) || (b.type === NodeType.STAR);
-        
         if (canMerge && this.getDistance(a, b) < a.radius * 2) {
-          // Void nodes cannot merge, they only consume
           if (a.type === NodeType.VOID || b.type === NodeType.VOID) continue;
-          
           this.mergeNodes(i, j);
           return; 
         }
@@ -240,45 +257,46 @@ export class Game {
     const b = this.nodes[indexB];
     const newLevel = a.level + 1;
 
-    console.log(`[Game] Merging Lvl ${a.level} nodes into Lvl ${newLevel}. Score: ${this.score}`);
+    this.comboCount++;
+    this.comboTimer = this.COMBO_TIMEOUT;
+    this.overlay.updateCombo(this.comboCount);
+
+    if (this.comboCount >= 3 && !this.isFrenzy) {
+      this.isFrenzy = true;
+      this.frenzyTimer = this.FRENZY_DURATION;
+      this.audio.setAmbiencePitch(1.5);
+      this.audio.playFrenzySiren();
+    }
 
     if (newLevel > 5) {
       this.isWin = true;
       this.audio.playSingularity();
-      
-      // Haptic: Victory rumble
       if ('vibrate' in navigator) {
         navigator.vibrate([200, 100, 200]);
       }
-      
       this.overlay.showWin();
       return;
     }
 
     const newX = (a.x + b.x) / 2;
     const newY = (a.y + b.y) / 2;
-    
     const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
     const gridX = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(newX / cellSize)));
     const gridY = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(newY / cellSize)));
-
-    // Snap to exact center of the grid cell for deterministic placement
     const snappedX = gridX * cellSize + cellSize / 2;
     const snappedY = gridY * cellSize + cellSize / 2;
 
     const mergedNode = new Node(snappedX, snappedY, gridX, gridY, newLevel);
     this.updateNodeColor(mergedNode);
-    
     mergedNode.scale = 1.6;
     this.ripples.push(new Ripple(newX, newY, mergedNode.color, GAME_CONFIG.PULSE_RADIUS));
     this.audio.playMerge(newLevel);
-
-    // Haptic: Merge pulse (stronger for higher levels)
     if ('vibrate' in navigator) {
       navigator.vibrate(newLevel >= 4 ? 100 : 50);
     }
 
-    this.score += mergedNode.scoreValue;
+    const multiplier = this.comboCount > 1 ? this.comboCount : 1;
+    this.score += mergedNode.scoreValue * multiplier;
     this.overlay.updateScore(this.score);
 
     if (this.score > this.highScore) {
@@ -289,7 +307,6 @@ export class Game {
 
     this.nodes = this.nodes.filter((_, idx) => idx !== indexA && idx !== indexB);
     this.nodes.push(mergedNode);
-
     this.spawnNode();
   }
 
@@ -304,7 +321,6 @@ export class Game {
       this.renderer.drawGrid();
       this.nodes.forEach(node => this.renderer.drawNode(node));
       this.ripples.forEach(ripple => this.renderer.drawRipple(ripple));
-
       this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
     } catch (e) {
       console.error('[Game] Critical loop error:', e);
