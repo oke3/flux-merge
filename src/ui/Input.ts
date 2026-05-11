@@ -65,9 +65,11 @@ export class Input {
   private handleTouchStart = (e: TouchEvent) => {
     e.preventDefault();
     const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
     const touch = e.touches[0];
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
+    const x = (touch.clientX - rect.left) * scaleX;
+    const y = (touch.clientY - rect.top) * scaleY;
     
     const node = this.findNode(x, y);
     if (node) {
@@ -80,9 +82,11 @@ export class Input {
     e.preventDefault();
     if (!this.draggedNode) return;
     const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
     const touch = e.touches[0];
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
+    const x = (touch.clientX - rect.left) * scaleX;
+    const y = (touch.clientY - rect.top) * scaleY;
     this.onDragMove(this.draggedNode, x, y);
   };
 

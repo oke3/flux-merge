@@ -32,7 +32,7 @@ export class Physics {
    * Snaps a node to the nearest grid center.
    */
   public static snapToGrid(node: Node) {
-    const cellSize = 600 / GAME_CONFIG.GRID_SIZE;
+    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
     const gridX = Math.floor(node.x / cellSize);
     const gridY = Math.floor(node.y / cellSize);
 

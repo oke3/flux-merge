@@ -1,5 +1,5 @@
 import { Node } from '../core/Node';
-import { GAME_CONFIG, COLORS } from '../assets/constants';
+import { GAME_CONFIG, COLORS, NODE_LEVELS } from '../assets/constants';
 
 export class Renderer {
   private canvas: HTMLCanvasElement;
@@ -68,6 +68,16 @@ export class Renderer {
     this.ctx.beginPath();
     this.ctx.arc(x - radius * 0.3, y - radius * 0.3, radius * 0.2, 0, Math.PI * 2);
     this.ctx.fill();
+
+    // Accessibility Symbol
+    const symbol = NODE_LEVELS[node.level]?.symbol || '';
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    this.ctx.font = `bold ${radius * 0.8}px Inter, system-ui, sans-serif`;
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    this.ctx.shadowBlur = 4;
+    this.ctx.fillText(symbol, x, y);
 
     this.ctx.restore();
   }

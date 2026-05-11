@@ -1,4 +1,5 @@
 export const GAME_CONFIG = {
+  CANVAS_SIZE: 600,
   GRID_SIZE: 6,
   NODE_RADIUS: 30,
   MAGNETIC_PULL_STRENGTH: 0.05,
@@ -63,11 +64,11 @@ export const THEMES: Record<string, Theme> = {
 };
 
 export const NODE_LEVELS: Record<number, NodeLevelInfo> = {
-  1: { color: THEMES.deepSpace.levels[1], name: 'Soft Cyan', score: 10 },
-  2: { color: THEMES.deepSpace.levels[2], name: 'Electric Blue', score: 20 },
-  3: { color: THEMES.deepSpace.levels[3], name: 'Vivid Purple', score: 40 },
-  4: { color: THEMES.deepSpace.levels[4], name: 'Deep Magenta', score: 80 },
-  5: { color: THEMES.deepSpace.levels[5], name: 'Singularity', score: 200 },
+  1: { color: THEMES.deepSpace.levels[1], name: 'Soft Cyan', score: 10, symbol: '○' },
+  2: { color: THEMES.deepSpace.levels[2], name: 'Electric Blue', score: 20, symbol: '△' },
+  3: { color: THEMES.deepSpace.levels[3], name: 'Vivid Purple', score: 40, symbol: '□' },
+  4: { color: THEMES.deepSpace.levels[4], name: 'Deep Magenta', score: 80, symbol: '◊' },
+  5: { color: THEMES.deepSpace.levels[5], name: 'Singularity', score: 200, symbol: '★' },
 };
 
 export const COLORS = {

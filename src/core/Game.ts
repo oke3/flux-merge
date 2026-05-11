@@ -8,6 +8,7 @@ import { Input } from '../ui/Input';
 import { Physics } from './Physics';
 import { Ripple } from './Ripple';
 import { Overlay } from '../ui/Overlay';
+import { AudioEngine } from '../assets/AudioEngine';
 import { GAME_CONFIG, THEMES } from '../assets/constants';
 
 interface Point {
@@ -20,6 +21,7 @@ export class Game {
   private ripples: Ripple[] = [];
   private renderer: Renderer;
   private overlay: Overlay;
+  private audio: AudioEngine;
   private score: number = 0;
   private highScore: number = 0;
   private currentTheme: string = 'deepSpace';
@@ -40,6 +42,7 @@ export class Game {
   constructor() {
     this.renderer = new Renderer('gameCanvas');
     this.overlay = new Overlay();
+    this.audio = new AudioEngine();
     
     new Input('gameCanvas', {
       findNode: (x, y) => this.findNodeAt(x, y),
@@ -67,6 +70,7 @@ export class Game {
       startBtn.onclick = () => {
         this.overlay.hideIntro();
         this.isPlaying = true;
+        this.audio.playBackgroundAmbience();
         this.initGame();
         this.gameLoop();
       };
@@ -109,7 +113,7 @@ export class Game {
   }
 
   private spawnNode() {
-    const cellSize = 600 / GAME_CONFIG.GRID_SIZE;
+    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
     const occupied = new Set(this.nodes.map(n => `${n.gridX},${n.gridY}`));
 
     const availableCells = [];
@@ -193,6 +197,7 @@ export class Game {
 
     if (newLevel > 5) {
       this.isWin = true;
+      this.audio.playSingularity();
       this.overlay.showWin();
       return;
     }
@@ -200,7 +205,7 @@ export class Game {
     const newX = (a.x + b.x) / 2;
     const newY = (a.y + b.y) / 2;
     
-    const cellSize = 600 / GAME_CONFIG.GRID_SIZE;
+    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
     const gridX = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(newX / cellSize)));
     const gridY = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(newY / cellSize)));
 
@@ -211,8 +216,9 @@ export class Game {
     const mergedNode = new Node(snappedX, snappedY, gridX, gridY, newLevel);
     this.updateNodeColor(mergedNode);
     
-    mergedNode.scale = 1.4;
+    mergedNode.scale = 1.6;
     this.ripples.push(new Ripple(newX, newY, mergedNode.color, GAME_CONFIG.PULSE_RADIUS));
+    this.audio.playMerge(newLevel);
 
     this.score += mergedNode.scoreValue;
     this.overlay.updateScore(this.score);
