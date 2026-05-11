@@ -11,6 +11,7 @@ export interface NodeLevelInfo {
   color: string;
   name: string;
   score: number;
+  symbol: string;
 }
 
 export interface Theme {
