@@ -12,12 +12,18 @@ Unlike traditional merge games, Flux Merge emphasizes **"game feel"** through a 
 - **Colorblind Friendly:** Every node level is assigned a unique geometric symbol (○, △, □, ◊, ★). This ensures that players who cannot distinguish colors can still play the game with 100% efficiency.
 - **ADHD-Friendly UX:** 
   - **Dopamine Loops:** Immediate, satisfying feedback through a combination of visual "pops," ripple effects, and pitch-shifting audio tones.
+  - **Flow State:** A high-intensity "Frenzy Mode" triggered by chain reactions, increasing game speed and reward.
   - **Low Cognitive Load:** A clean, minimalist "glassmorphism" UI that keeps the focus entirely on the gameplay.
 - **Cross-Platform Fluidity:** A custom coordinate-scaling system allows the game to maintain a consistent internal resolution while adapting its display size to any screen (Mobile, Tablet, or Desktop).
 
 ### ⚙️ Core Mechanics
-- **Magnetic Pull:** Nodes of the same level exert a magnetic attraction on one another, creating emergent gameplay and helping players organize their grid.
-- **Dynamic Difficulty:** The spawn interval accelerates as the player's score increases, creating a natural tension curve.
+- **Magnetic Pull:** Nodes of the same level exert a magnetic attraction on one another. During **Frenzy Mode**, this attraction is supercharged.
+- **Special Nodes:** 
+  - **Star Nodes:** Golden wildcards that can merge with any node level.
+  - **Void Nodes:** Cosmic black holes that consume nearby energy to clear the board.
+- **Combo System:** Rapid merges build a multiplier that exponentially increases score gains.
+- **Customization:** A built-in "Theme Lab" allowing players to define their own cosmic color palettes.
+- **Tactile Feedback:** Integrated haptics for mobile devices that provide physical confirmation of merges and cosmic events.
 - **The Singularity:** A progression system where merging leads to higher energy levels, culminating in the achievement of the Singularity (Level 6).
 
 ---
@@ -75,12 +81,10 @@ To prevent type regressions and runtime crashes, the project is gated by a stric
 ## 🗺️ Roadmap
 
 ### Short Term
-- [ ] **Haptic Feedback:** Implement `navigator.vibrate` for mobile devices during merges.
-- [ ] **Custom Themes:** Allow users to create and save their own color palettes.
-- [ ] **Local Leaderboards:** Expand `localStorage` usage to track multiple high scores.
+- [ ] **Local Leaderboards:** Expand `localStorage` usage to track multiple high scores and game history.
+- [ ] **Achievement System:** Unlockable badges for specific gameplay milestones.
 
 ### Long Term
-- [ ] **Special Nodes:** Introduce "Void Nodes" (black holes that consume others) and "Star Nodes" (wildcards).
 - [ ] **Global Competition:** Implement a backend to support global leaderboards and seasonal challenges.
 - [ ] **Advanced VFX:** Integrate WebGL/Three.js for 3D node effects and more complex particle systems.
 
