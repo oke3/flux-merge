@@ -234,9 +234,3 @@ export class Game {
     }
   }
 }
-.gameLoop());
-    } catch (e) {
-      console.error('[Game] Critical loop error:', e);
-    }
-  }
-}
