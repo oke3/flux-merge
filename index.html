@@ -9,7 +9,7 @@
         margin: 0;
         padding: 0;
         overflow: hidden;
-        background: radial-gradient(circle, #1a1a2e 0%, #0f0f1a 100%);
+        background: radial-gradient(circle, #1a1a3e 0%, #0f0f1a 100%);
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
         color: white;
         display: flex;
@@ -20,10 +20,18 @@
         touch-action: none;
       }
 
+      #main-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 600px;
+      }
+
       #game-container {
         position: relative;
         width: 100%;
-        max-width: 600px;
         aspect-ratio: 1 / 1;
         display: flex;
         justify-content: center;
@@ -40,15 +48,14 @@
       }
 
       .overlay {
-        position: absolute;
-        top: 20px;
-        left: 0;
-        right: 0;
-        pointer-events: none;
+        position: relative;
+        width: 100%;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0 20px;
+        padding: 0 10px;
+        margin-bottom: 20px;
+        box-sizing: border-box;
         z-index: 10;
       }
 
@@ -69,9 +76,6 @@
       }
 
       .theme-selector {
-        position: absolute;
-        top: 20px;
-        right: 20px;
         pointer-events: auto;
       }
 
@@ -165,31 +169,33 @@
     </style>
   </head>
   <body>
-    <div id="game-container">
-      <canvas id="gameCanvas" width="600" height="600"></canvas>
-      
-      <div id="intro-screen">
-        <h1 class="intro-title">FLUX MERGE</h1>
-        <p class="intro-subtitle">Harness the Energy. Reach the Singularity.</p>
-        <button class="btn" id="startBtn">Begin Awakening</button>
-      </div>
-
+    <div id="main-wrapper">
       <div class="overlay">
         <div class="glass-panel score-display">
           Score: <span id="scoreValue">0</span>
         </div>
       </div>
 
-      <div id="ui-overlay">
-        <div id="gameOverModal" class="glass-panel modal">
-          <h1>Grid Full!</h1>
-          <p>The singularity was just out of reach.</p>
-          <button class="btn" onclick="location.reload()">Retry</button>
+      <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
+        
+        <div id="intro-screen">
+          <h1 class="intro-title">FLUX MERGE</h1>
+          <p class="intro-subtitle">Harness the Energy. Reach the Singularity.</p>
+          <button class="btn" id="startBtn">Begin Awakening</button>
         </div>
-        <div id="winModal" class="glass-panel modal">
-          <h1>Singularity Achieved!</h1>
-          <p>You have merged the cosmos.</p>
-          <button class="btn" onclick="location.reload()">Play Again</button>
+
+        <div id="ui-overlay">
+          <div id="gameOverModal" class="glass-panel modal">
+            <h1>Grid Full!</h1>
+            <p>The singularity was just out of reach.</p>
+            <button class="btn" onclick="location.reload()">Retry</button>
+          </div>
+          <div id="winModal" class="glass-panel modal">
+            <h1>Singularity Achieved!</h1>
+            <p>You have merged the cosmos.</p>
+            <button class="btn" onclick="location.reload()">Play Again</button>
+          </div>
         </div>
       </div>
     </div>
