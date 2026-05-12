@@ -45,6 +45,8 @@ export class Game {
   private readonly MIN_SPAWN_INTERVAL = 1200;
   private readonly MAX_DIFFICULTY_SCORE = 2000;
   private tutorialActive: boolean = true;
+  private tutorialStep: number = 0;
+  private tutorialTimer: any = null;
   private pulsarTimer: number = 0;
   private readonly PULSAR_INTERVAL = 3000;
 
@@ -108,7 +110,8 @@ export class Game {
         this.gameLoop();
         
         if (this.tutorialActive) {
-          this.triggerTutorial(0);
+          this.tutorialStep = 0;
+          this.triggerTutorial();
         }
       };
     }
@@ -116,6 +119,10 @@ export class Game {
 
   public stop() {
     this.isPlaying = false;
+    if (this.tutorialTimer) {
+      clearTimeout(this.tutorialTimer);
+      this.tutorialTimer = null;
+    }
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
@@ -505,7 +512,7 @@ export class Game {
     }
   }
 
-  private triggerTutorial(step: number) {
+  private triggerTutorial() {
     const steps = [
       'Welcome to the Cosmos. Drag nodes of the same color to merge them.',
       'Reach the Singularity (Level 5) to win the game.',
@@ -513,15 +520,17 @@ export class Game {
       'Earn XP to upgrade your abilities in the Cosmic Profile.'
     ];
 
-    if (step >= steps.length) {
+    if (this.tutorialStep >= steps.length) {
       this.tutorialActive = false;
+      this.tutorialStep = 0;
       return;
     }
 
-    this.ui.showTutorial(steps[step]);
+    this.ui.showTutorial(steps[this.tutorialStep]);
     
-    setTimeout(() => {
-      this.triggerTutorial(step + 1);
+    this.tutorialTimer = setTimeout(() => {
+      this.tutorialStep++;
+      this.triggerTutorial();
     }, 6000);
   }
 

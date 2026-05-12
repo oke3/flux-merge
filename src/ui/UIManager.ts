@@ -54,6 +54,19 @@ export class UIManager {
       (btn as HTMLElement).onclick = () => this.showPanel('main');
     });
 
+    // Modal Navigation
+    document.getElementById('btn-menu-from-over')!.onclick = () => this.showPanel('main');
+    document.getElementById('btn-menu-from-win')!.onclick = () => this.showPanel('main');
+    
+    document.getElementById('btn-retry')!.onclick = () => {
+      this.showPanel('main');
+      document.getElementById('startBtn')!.click();
+    };
+    document.getElementById('btn-retry-win')!.onclick = () => {
+      this.showPanel('main');
+      document.getElementById('startBtn')!.click();
+    };
+
     // Settings Actions
     document.getElementById('btn-load')!.onclick = () => {
       this.profile = ProfileManager.loadProfile();
