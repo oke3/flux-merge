@@ -75,10 +75,6 @@
         letter-spacing: 2px;
       }
 
-      .theme-selector {
-        pointer-events: auto;
-      }
-
       #ui-overlay {
         position: absolute;
         top: 0;
@@ -89,16 +85,23 @@
         display: flex;
         justify-content: center;
         align-items: center;
+        z-index: 100;
       }
 
-      .modal {
+      .panel {
         pointer-events: auto;
         display: none;
         flex-direction: column;
         align-items: center;
         text-align: center;
         animation: fadeIn 0.3s ease-out;
-        max-width: 80%;
+        max-width: 90%;
+        width: 400px;
+        padding: 30px;
+      }
+
+      .panel.active {
+        display: flex;
       }
 
       @keyframes fadeIn {
@@ -107,7 +110,7 @@
       }
 
       .btn {
-        margin-top: 20px;
+        margin: 10px 0;
         padding: 12px 32px;
         background: white;
         color: #0f0f1a;
@@ -117,6 +120,8 @@
         cursor: pointer;
         transition: all 0.2s;
         font-size: clamp(14px, 3vw, 16px);
+        width: 100%;
+        max-width: 250px;
       }
 
       .btn:hover {
@@ -124,28 +129,14 @@
         box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
       }
 
-      #intro-screen {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(15, 15, 26, 0.85);
-        backdrop-filter: blur(15px);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        z-index: 100;
-        transition: opacity 1s ease, visibility 1s;
-        text-align: center;
-        padding: 20px;
-        box-sizing: border-box;
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
       }
 
-      #intro-screen.hidden {
-        opacity: 0;
-        visibility: hidden;
+      .btn-danger {
+        background: #ff4444;
+        color: white;
       }
 
       .intro-title {
@@ -153,7 +144,7 @@
         font-weight: 900;
         letter-spacing: 8px;
         text-transform: uppercase;
-        margin: 0;
+        margin: 0 0 10px 0;
         background: linear-gradient(to bottom, #fff, #888);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -166,8 +157,42 @@
         margin-bottom: 40px;
         letter-spacing: 2px;
       }
+
+      .settings-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        width: 100%;
+        margin-bottom: 20px;
+      }
+
+      .upgrade-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        padding: 10px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        text-align: left;
+      }
+
+      .tutorial-box {
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80%;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+        z-index: 110;
+      }
+
+      .tutorial-box.visible {
+        opacity: 1;
+      }
     </style>
-    <script type="module" crossorigin src="./assets/index-DDbxjqbH.js"></script>
+    <script type="module" crossorigin src="./assets/index-DnjlBNve.js"></script>
   </head>
   <body>
     <div id="main-wrapper">
@@ -175,28 +200,72 @@
         <div class="glass-panel score-display">
           Score: <span id="scoreValue">0</span>
         </div>
+        <div class="glass-panel score-display" style="margin-left: 10px;">
+          Best: <span id="highScoreValue">0</span>
+        </div>
       </div>
 
       <div id="game-container">
         <canvas id="gameCanvas" width="600" height="600"></canvas>
-        
-        <div id="intro-screen">
-          <h1 class="intro-title">FLUX MERGE</h1>
-          <p class="intro-subtitle">Harness the Energy. Reach the Singularity.</p>
-          <button class="btn" id="startBtn">Begin Awakening</button>
-        </div>
 
         <div id="ui-overlay">
-          <div id="gameOverModal" class="glass-panel modal">
+          <!-- Main Menu -->
+          <div id="panel-main" class="glass-panel panel active">
+            <h1 class="intro-title">FLUX MERGE</h1>
+            <p class="intro-subtitle">Harness the Energy. Reach the Singularity.</p>
+            <button class="btn" id="startBtn">Begin Awakening</button>
+            <button class="btn btn-secondary" id="btn-profile">Cosmic Profile</button>
+            <button class="btn btn-secondary" id="btn-settings">Settings</button>
+          </div>
+
+          <!-- Profile / Ability Tree -->
+          <div id="panel-profile" class="glass-panel panel">
+            <h2>Cosmic Profile</h2>
+            <div id="profile-stats" style="margin-bottom: 20px;">
+              <p>Rank: <span id="profile-rank">1</span></p>
+              <p>Experience: <span id="profile-xp">0</span></p>
+            </div>
+            <div id="ability-tree" style="width: 100%; margin-bottom: 20px;">
+              <!-- Upgrades injected here -->
+            </div>
+            <button class="btn btn-secondary" id="btn-back-main">Back</button>
+          </div>
+
+          <!-- Settings -->
+          <div id="panel-settings" class="glass-panel panel">
+            <h2>Settings Vault</h2>
+            <div class="settings-grid">
+              <button class="btn btn-secondary" id="btn-load">Load Profile</button>
+              <button class="btn btn-secondary" id="btn-new-game">New Game</button>
+              <button class="btn btn-secondary" id="btn-delete">Delete Save</button>
+              <button class="btn btn-danger" id="btn-reset">Nuclear Reset</button>
+            </div>
+            <div style="width: 100%; margin-bottom: 20px;">
+              <label>Cosmic Theme:</label>
+              <select id="themeSelect" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px;"></select>
+            </div>
+            <button class="btn btn-secondary" id="btn-back-main">Back</button>
+          </div>
+
+          <!-- Modals -->
+          <div id="gameOverModal" class="glass-panel panel">
             <h1>Grid Full!</h1>
             <p>The singularity was just out of reach.</p>
-            <button class="btn" onclick="location.reload()">Retry</button>
+            <button class="btn" id="btn-retry">Retry</button>
+            <button class="btn btn-secondary" id="btn-menu-from-over">Main Menu</button>
           </div>
-          <div id="winModal" class="glass-panel modal">
+
+          <div id="winModal" class="glass-panel panel">
             <h1>Singularity Achieved!</h1>
             <p>You have merged the cosmos.</p>
-            <button class="btn" onclick="location.reload()">Play Again</button>
+            <button class="btn" id="btn-retry-win">Play Again</button>
+            <button class="btn btn-secondary" id="btn-menu-from-win">Main Menu</button>
           </div>
+        </div>
+
+        <!-- Tutorial Guide -->
+        <div id="tutorial-box" class="glass-panel tutorial-box">
+          <p id="tutorial-text">Welcome to the Cosmos...</p>
         </div>
       </div>
     </div>
