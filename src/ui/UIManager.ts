@@ -54,14 +54,6 @@ export class UIManager {
       (btn as HTMLElement).onclick = () => this.showPanel('main');
     });
 
-    // Burger Menu
-    document.getElementById('btn-burger')!.onclick = () => {
-      const mainPanel = this.panels['main'];
-      if (mainPanel) {
-        mainPanel.classList.toggle('active');
-      }
-    };
-
     // Modal Navigation
     document.getElementById('btn-menu-from-over')!.onclick = () => this.showPanel('main');
     document.getElementById('btn-menu-from-win')!.onclick = () => this.showPanel('main');

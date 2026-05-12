@@ -1,7 +1,8 @@
 import { Node } from '../core/Node';
+import type { IRenderer } from './IRenderer';
 import { GAME_CONFIG, COLORS, NODE_LEVELS, NodeType } from '../assets/constants';
 
-export class Renderer {
+export class Renderer implements IRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
 

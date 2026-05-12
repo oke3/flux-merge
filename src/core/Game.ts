@@ -7,6 +7,7 @@
  * Version: 1.0.1 - Stability Update
  */
 import { Node } from './Node';
+import type { IRenderer } from '../ui/IRenderer';
 import { Renderer } from '../ui/Renderer';
 import { Input } from '../ui/Input';
 import { Physics } from './Physics';
@@ -28,7 +29,7 @@ export class Game {
   private nodes: Node[] = [];
   private ripples: Ripple[] = [];
   private particles: ParticleSystem;
-  private renderer: Renderer;
+  private renderer: IRenderer;
   private ui: UIManager;
   private audio: AudioEngine;
   private profile: UserProfile;
@@ -285,31 +286,46 @@ export class Game {
       this.triggerPulsarWave();
       this.pulsarTimer = this.PULSAR_INTERVAL;
     }
+const magneticStrength = ProfileManager.getAbilityValue('magneticPull', this.profile);
+const strengthMultiplier = this.isFrenzy ? 2.5 : 1;
 
-    const magneticStrength = ProfileManager.getAbilityValue('magneticPull', this.profile);
-    const strengthMultiplier = this.isFrenzy ? 2.5 : 1;
-    for (let i = 0; i < this.nodes.length; i++) {
-      for (let j = i + 1; j < this.nodes.length; j++) {
-        Physics.applyMagneticPull(this.nodes[i], this.nodes[j], strengthMultiplier * (magneticStrength / 0.05));
+// Spatial Partitioning: Group nodes by grid cell
+const gridMap: Record<string, Node[]> = {};
+this.nodes.forEach(node => {
+  const key = `${node.gridX},${node.gridY}`;
+  if (!gridMap[key]) gridMap[key] = [];
+  gridMap[key].push(node);
+});
+
+for (const node of this.nodes) {
+  const nearbyNodes: Node[] = [];
+  // Check current cell and 8 neighbors
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      const key = `${node.gridX + dx},${node.gridY + dy}`;
+      if (gridMap[key]) {
+        nearbyNodes.push(...gridMap[key]);
       }
     }
-
-    this.nodes.forEach(node => node.update());
-    this.ripples.forEach(ripple => ripple.update());
-    this.ripples = this.ripples.filter(r => !r.isDead);
-    this.particles.update();
-    
-    if (this.isFrenzy && Math.random() < 0.02) {
-      this.audio.playFrenzySiren();
-    }
-
-    this.handleVoidConsumption();
-    this.handleSupernovas();
-    this.checkMerges();
   }
+  Physics.applyMagneticPull(node, nearbyNodes, strengthMultiplier * (magneticStrength / 0.05));
+}
 
-  private triggerPulsarWave() {
-    const pulsars = this.nodes.filter(n => n.type === NodeType.PULSAR);
+this.nodes.forEach(node => node.update());
+this.ripples.forEach(ripple => ripple.update());
+this.ripples = this.ripples.filter(r => !r.isDead);
+this.particles.update();
+
+if (this.isFrenzy && Math.random() < 0.02) {
+  this.audio.playFrenzySiren();
+}
+
+this.handleVoidConsumption();
+this.handleSupernovas();
+this.checkMerges();
+}
+
+private triggerPulsarWave() {    const pulsars = this.nodes.filter(n => n.type === NodeType.PULSAR);
     pulsars.forEach(p => {
       this.ripples.push(new Ripple(p.x, p.y, p.color, GAME_CONFIG.PULSE_RADIUS));
       this.particles.spawnBurst(p.x, p.y, p.color, 20);
@@ -503,16 +519,44 @@ export class Game {
     const level = Math.max(a.level, b.level);
     const splitLevel = Math.max(1, level - 1);
 
+    // Find nearest available grid cells to prevent overlap
+    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
+    const occupied = new Set(this.nodes.map(n => `${n.gridX},${n.gridY}`));
+    
+    const findNearestAvailable = (targetX: number, targetY: number) => {
+      const targetGridX = Math.floor(targetX / cellSize);
+      const targetGridY = Math.floor(targetY / cellSize);
+      
+      // Search in expanding rings
+      for (let r = 0; r < GAME_CONFIG.GRID_SIZE; r++) {
+        for (let dx = -r; dx <= r; dx++) {
+          for (let dy = -r; dy <= r; dy++) {
+            const gx = targetGridX + dx;
+            const gy = targetGridY + dy;
+            if (gx >= 0 && gx < GAME_CONFIG.GRID_SIZE && gy >= 0 && gy < GAME_CONFIG.GRID_SIZE) {
+              if (!occupied.has(`${gx},${gy}`)) {
+                return { gx, gy };
+              }
+            }
+          }
+        }
+      }
+      return { gx: 0, gy: 0 }; // Fallback
+    };
+
     for (let i = 0; i < 2; i++) {
       const offset = (i === 0 ? -20 : 20);
-      const node = new Node(newX + offset, newY + offset, 0, 0, splitLevel);
+      const tx = newX + offset;
+      const ty = newY + offset;
+      
+      const { gx, gy } = findNearestAvailable(tx, ty);
+      occupied.add(`${gx},${gy}`);
+      
+      const snappedX = gx * cellSize + cellSize / 2;
+      const snappedY = gy * cellSize + cellSize / 2;
+      
+      const node = new Node(snappedX, snappedY, gx, gy, splitLevel);
       this.updateNodeColor(node);
-      
-      // Recalculate grid position for the new split node
-      const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
-      node.gridX = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(node.x / cellSize)));
-      node.gridY = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(node.y / cellSize)));
-      
       this.nodes.push(node);
     }
   }

@@ -17,7 +17,7 @@ describe('Flux Merge Core Physics', () => {
     const initialTargetX_A = nodeA.targetX;
     const initialTargetX_B = nodeB.targetX;
 
-    Physics.applyMagneticPull(nodeA, nodeB);
+    Physics.applyMagneticPull(nodeA, [nodeB]);
 
     // nodeA should move towards nodeB (increase X)
     expect(nodeA.targetX).toBeGreaterThan(initialTargetX_A);
@@ -29,7 +29,7 @@ describe('Flux Merge Core Physics', () => {
     nodeB.level = 2;
     const initialTargetX_A = nodeA.targetX;
 
-    Physics.applyMagneticPull(nodeA, nodeB);
+    Physics.applyMagneticPull(nodeA, [nodeB]);
 
     expect(nodeA.targetX).toBe(initialTargetX_A);
   });
@@ -38,7 +38,7 @@ describe('Flux Merge Core Physics', () => {
     nodeA.isDragging = true;
     const initialTargetX_B = nodeB.targetX;
 
-    Physics.applyMagneticPull(nodeA, nodeB);
+    Physics.applyMagneticPull(nodeA, [nodeB]);
 
     expect(nodeB.targetX).toBe(initialTargetX_B);
   });

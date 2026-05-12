@@ -1,16 +1,22 @@
 /* 
  * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
+ * Proprietary and confidential. Reverse engineering prohibited.
  */
 import * as THREE from 'three';
+import type { IRenderer } from './IRenderer';
+import { Node } from '../core/Node';
 import { GAME_CONFIG } from '../assets/constants';
 
-export class ThreeRenderer {
+export class ThreeRenderer implements IRenderer {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
   private container: HTMLElement;
   private gridHelper: THREE.GridHelper;
-  private nodesMeshes: Map<any, THREE.Mesh> = new Map();
+  private nodesMeshes: Map<Node, THREE.Mesh> = new Map();
+  private ripplesMeshes: Map<any, THREE.Mesh> = new Map();
+  private particlesSystem: THREE.Points | null = null;
+  private particlesGeometry: THREE.BufferGeometry | null = null;
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId)!.parentElement!;
@@ -63,11 +69,15 @@ export class ThreeRenderer {
     // it clears every frame during renderer.render()
   }
 
+  public drawBackground(_offset: number) {
+    // Background color is handled by this.scene.background
+  }
+
   public drawGrid() {
     // Grid is already a persistent object in the scene
   }
 
-  public drawNode(node: any) {
+  public drawNode(node: Node) {
     let mesh = this.nodesMeshes.get(node);
 
     if (!mesh) {
@@ -105,12 +115,71 @@ export class ThreeRenderer {
     }
   }
 
-  public drawRipple(_ripple: any) {
-    // Implementation for 3D ripples (e.g., expanding rings) will follow
+  public drawRipple(ripple: any) {
+    let mesh = this.ripplesMeshes.get(ripple);
+
+    if (!mesh) {
+      const geometry = new THREE.RingGeometry(0.1, 0.2, 32);
+      const material = new THREE.MeshBasicMaterial({ 
+        color: ripple.color, 
+        transparent: true, 
+        opacity: 1, 
+        side: THREE.DoubleSide 
+      });
+      mesh = new THREE.Mesh(geometry, material);
+      mesh.rotation.x = Math.PI / 2;
+      this.scene.add(mesh);
+      this.ripplesMeshes.set(ripple, mesh);
+    }
+
+    const x = ripple.x - GAME_CONFIG.CANVAS_SIZE / 2;
+    const y = -(ripple.y - GAME_CONFIG.CANVAS_SIZE / 2);
+    
+    mesh.position.set(x, y, 0);
+    mesh.scale.setScalar(ripple.radius / 10);
+    (mesh.material as THREE.MeshBasicMaterial).opacity = ripple.opacity;
+
+    if (ripple.isDead) {
+      this.scene.remove(mesh);
+      mesh.geometry.dispose();
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach(mat => mat.dispose());
+      this.ripplesMeshes.delete(ripple);
+    }
   }
 
-  public drawParticles(_particles: any[]) {
-    // Implementation for 3D particles will follow
+  public drawParticles(particles: any[]) {
+    if (particles.length === 0) return;
+
+    if (!this.particlesSystem) {
+      this.particlesGeometry = new THREE.BufferGeometry();
+      const material = new THREE.PointsMaterial({ 
+        size: 0.2, 
+        vertexColors: true, 
+        transparent: true, 
+        opacity: 0.8 
+      });
+      this.particlesSystem = new THREE.Points(this.particlesGeometry, material);
+      this.scene.add(this.particlesSystem);
+    }
+
+    const positions = new Float32Array(particles.length * 3);
+    const colors = new Float32Array(particles.length * 3);
+
+    particles.forEach((p, i) => {
+      positions[i * 3] = p.x - GAME_CONFIG.CANVAS_SIZE / 2;
+      positions[i * 3 + 1] = -(p.y - GAME_CONFIG.CANVAS_SIZE / 2);
+      positions[i * 3 + 1] = -(p.y - GAME_CONFIG.CANVAS_SIZE / 2);
+      positions[i * 3 + 2] = 0;
+
+      const color = new THREE.Color(p.color);
+      colors[i * 3] = color.r;
+      colors[i * 3 + 1] = color.g;
+      colors[i * 3 + 2] = color.b;
+    });
+
+    this.particlesGeometry!.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    this.particlesGeometry!.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   }
 
   public applyShake(intensity: number) {
@@ -128,16 +197,13 @@ export class ThreeRenderer {
     this.renderer.render(this.scene, this.camera);
   }
 
-  public removeNodeMesh(node: any) {
+  public removeNodeMesh(node: Node) {
     const mesh = this.nodesMeshes.get(node);
     if (mesh) {
       this.scene.remove(mesh);
       mesh.geometry.dispose();
-      if (Array.isArray(mesh.material)) {
-        mesh.material.forEach(mat => mat.dispose());
-      } else {
-        mesh.material.dispose();
-      }
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach(mat => mat.dispose());
       this.nodesMeshes.delete(node);
     }
   }

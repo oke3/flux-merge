@@ -7,28 +7,33 @@ import { GAME_CONFIG } from '../assets/constants';
 
 export class Physics {
   /**
-   * Calculates and applies a magnetic pull between two nodes of the same level.
+   * Calculates and applies a magnetic pull between a node and a list of potential targets.
    */
-  public static applyMagneticPull(nodeA: Node, nodeB: Node, strengthMultiplier: number = 1) {
-    if (nodeA.level !== nodeB.level) return;
-    if (nodeA.isDragging || nodeB.isDragging) return;
+  public static applyMagneticPull(nodeA: Node, targets: Node[], strengthMultiplier: number = 1) {
+    for (const nodeB of targets) {
+      if (nodeA === nodeB) continue;
+      if (nodeA.level !== nodeB.level) continue;
+      if (nodeA.isDragging || nodeB.isDragging) continue;
 
-    const dx = nodeB.x - nodeA.x;
-    const dy = nodeB.y - nodeA.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+      const dx = nodeB.x - nodeA.x;
+      const dy = nodeB.y - nodeA.y;
+      const distanceSq = dx * dx + dy * dy;
 
-    // Only apply pull if nodes are relatively close (e.g., within 3 grid cells)
-    const maxPullDistance = (600 / GAME_CONFIG.GRID_SIZE) * 3;
+      // Use distance squared for faster comparison
+      const maxPullDistance = (600 / GAME_CONFIG.GRID_SIZE) * 3;
+      const maxPullDistanceSq = maxPullDistance * maxPullDistance;
 
-    if (distance > 0 && distance < maxPullDistance) {
-      const force = GAME_CONFIG.MAGNETIC_PULL_STRENGTH * (1 - distance / maxPullDistance) * strengthMultiplier;
-      
-      // Move nodes slightly towards each other
-      nodeA.targetX += (dx / distance) * force * 10;
-      nodeA.targetY += (dy / distance) * force * 10;
-      
-      nodeB.targetX -= (dx / distance) * force * 10;
-      nodeB.targetY -= (dy / distance) * force * 10;
+      if (distanceSq > 0 && distanceSq < maxPullDistanceSq) {
+        const distance = Math.sqrt(distanceSq);
+        const force = GAME_CONFIG.MAGNETIC_PULL_STRENGTH * (1 - distance / maxPullDistance) * strengthMultiplier;
+
+        // Move nodes slightly towards each other
+        nodeA.targetX += (dx / distance) * force * 10;
+        nodeA.targetY += (dy / distance) * force * 10;
+
+        nodeB.targetX -= (dx / distance) * force * 10;
+        nodeB.targetY -= (dy / distance) * force * 10;
+      }
     }
   }
 
