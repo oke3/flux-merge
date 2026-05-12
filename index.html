@@ -192,7 +192,7 @@
         opacity: 1;
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-J6XBBzPf.js"></script>
+    <script type="module" crossorigin src="./assets/index-CUs5iPQq.js"></script>
   </head>
   <body>
     <div id="main-wrapper">
@@ -234,6 +234,10 @@
           <!-- Settings -->
           <div id="panel-settings" class="glass-panel panel">
             <h2>Settings Vault</h2>
+            <div class="tutorial-toggle">
+              <span>Cosmic Guide (Tutorial)</span>
+              <input type="checkbox" id="toggle-tutorial" checked>
+            </div>
             <div class="settings-grid">
               <button class="btn btn-secondary" id="btn-load">Load Profile</button>
               <button class="btn btn-secondary" id="btn-new-game">New Game</button>
@@ -251,6 +255,26 @@
           <div id="gameOverModal" class="glass-panel panel">
             <h1>Grid Full!</h1>
             <p>The singularity was just out of reach.</p>
+            <button class="btn" id="btn-retry">Retry</button>
+            <button class="btn btn-secondary" id="btn-menu-from-over">Main Menu</button>
+          </div>
+
+          <div id="winModal" class="glass-panel panel">
+            <h1>Singularity Achieved!</h1>
+            <p>You have merged the cosmos.</p>
+            <button class="btn" id="btn-retry-win">Play Again</button>
+            <button class="btn btn-secondary" id="btn-menu-from-win">Main Menu</button>
+          </div>
+        </div>
+
+        <!-- Tutorial Guide -->
+        <div id="tutorial-box" class="glass-panel tutorial-box">
+          <p id="tutorial-text">Welcome to the Cosmos...</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>l>singularity was just out of reach.</p>
             <button class="btn" id="btn-retry">Retry</button>
             <button class="btn btn-secondary" id="btn-menu-from-over">Main Menu</button>
           </div>
