@@ -2,6 +2,7 @@ export const NodeType = {
   STANDARD: 'STANDARD',
   VOID: 'VOID',
   STAR: 'STAR',
+  SUPERNOVA: 'SUPERNOVA',
 } as const;
 
 export type NodeType = typeof NodeType[keyof typeof NodeType];

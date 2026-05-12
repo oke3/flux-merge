@@ -13,6 +13,9 @@ import { Physics } from './Physics';
 import { Ripple } from './Ripple';
 import { Overlay } from '../ui/Overlay';
 import { AudioEngine } from '../assets/AudioEngine';
+import { ParticleSystem } from './ParticleSystem';
+import { StorageManager, type GameSession } from './StorageManager';
+import { BadgeManager } from './BadgeManager';
 import { GAME_CONFIG, THEMES, NodeType } from '../assets/constants';
 
 interface Point {
@@ -23,6 +26,7 @@ interface Point {
 export class Game {
   private nodes: Node[] = [];
   private ripples: Ripple[] = [];
+  private particles: ParticleSystem;
   private renderer: Renderer;
   private overlay: Overlay;
   private audio: AudioEngine;
@@ -34,9 +38,15 @@ export class Game {
   private isPlaying: boolean = false;
   private animationFrameId: number | null = null;
   private lastSpawnTime: number = 0;
+  private startTime: number = 0;
   private readonly BASE_SPAWN_INTERVAL = 4000;
   private readonly MIN_SPAWN_INTERVAL = 1200;
   private readonly MAX_DIFFICULTY_SCORE = 2000;
+
+  // Sensory State
+  private backgroundOffset: number = 0;
+  private screenShakeIntensity: number = 0;
+  private screenShakeDuration: number = 0;
 
   // Combo & Frenzy State
   private comboCount: number = 1;
@@ -46,12 +56,16 @@ export class Game {
   private readonly COMBO_TIMEOUT = 1500;
   private readonly FRENZY_DURATION = 5000;
 
+  // Achievement State
+  private supernovaTriggered: boolean = false;
+
   private get currentSpawnInterval(): number {
     const reduction = (this.score / this.MAX_DIFFICULTY_SCORE) * (this.BASE_SPAWN_INTERVAL - this.MIN_SPAWN_INTERVAL);
     return Math.max(this.MIN_SPAWN_INTERVAL, this.BASE_SPAWN_INTERVAL - reduction);
   }
 
   constructor() {
+    this.particles = new ParticleSystem();
     this.renderer = new Renderer('gameCanvas');
     this.overlay = new Overlay();
     this.audio = new AudioEngine();
@@ -84,6 +98,7 @@ export class Game {
         this.isPlaying = true;
         this.audio.playBackgroundAmbience();
         this.initGame();
+        this.startTime = performance.now();
         this.gameLoop();
       };
     }
@@ -95,7 +110,24 @@ export class Game {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+    this.saveCurrentSession();
   }
+
+  private saveCurrentSession() {
+    const duration = Math.floor((performance.now() - this.startTime) / 1000);
+    const maxLevel = this.nodes.length > 0 ? Math.max(...this.nodes.map(n => n.level)) : 1;
+    
+    const session: GameSession = {
+      date: new Date().toISOString(),
+      score: this.score,
+      maxLevel: maxLevel,
+      duration: duration
+    };
+    StorageManager.saveSession(session);
+  }
+
+  public getCombo() { return this.comboCount; }
+  public hasTriggeredSupernova() { return this.supernovaTriggered; }
 
   private findNodeAt(x: number, y: number): Node | null {
     return this.nodes.find(n => this.getDistance({x, y}, n) < n.radius * 1.5) || null;
@@ -141,6 +173,7 @@ export class Game {
       console.log('[Game] Grid Full - Game Over');
       this.isGameOver = true;
       this.overlay.showGameOver();
+      this.stop();
       return;
     }
 
@@ -150,7 +183,14 @@ export class Game {
 
     let type: NodeType = NodeType.STANDARD;
     if (Math.random() < GAME_CONFIG.SPECIAL_NODE_CHANCE) {
-      type = Math.random() > 0.5 ? NodeType.VOID : NodeType.STAR;
+      const rand = Math.random();
+      if (rand < 0.1) {
+        type = NodeType.SUPERNOVA;
+      } else if (rand < 0.5) {
+        type = NodeType.VOID;
+      } else {
+        type = NodeType.STAR;
+      }
     }
 
     const node = new Node(x, y, cell.x, cell.y, 1, type);
@@ -167,6 +207,8 @@ export class Game {
       node.color = '#000000';
     } else if (node.type === NodeType.STAR) {
       node.color = '#FFD700';
+    } else if (node.type === NodeType.SUPERNOVA) {
+      node.color = '#FF4500';
     } else {
       const theme = THEMES[this.currentTheme];
       node.color = theme.levels[node.level];
@@ -177,6 +219,15 @@ export class Game {
     if (!this.isPlaying || this.isGameOver || this.isWin) return;
 
     const now = performance.now();
+
+    // Update Sensory State
+    this.backgroundOffset += 0.1;
+    if (this.screenShakeDuration > 0) {
+      this.screenShakeDuration -= 16.67;
+      if (this.screenShakeDuration <= 0) {
+        this.screenShakeIntensity = 0;
+      }
+    }
 
     if (this.comboTimer > 0) {
       this.comboTimer -= 16.67;
@@ -209,13 +260,20 @@ export class Game {
     this.nodes.forEach(node => node.update());
     this.ripples.forEach(ripple => ripple.update());
     this.ripples = this.ripples.filter(r => !r.isDead);
+    this.particles.update();
     
     if (this.isFrenzy && Math.random() < 0.02) {
       this.audio.playFrenzySiren();
     }
 
     this.handleVoidConsumption();
+    this.handleSupernovas();
     this.checkMerges();
+  }
+
+  private triggerShake(intensity: number, duration: number = 200) {
+    this.screenShakeIntensity = intensity;
+    this.screenShakeDuration = duration;
   }
 
   private handleVoidConsumption() {
@@ -230,6 +288,7 @@ export class Game {
 
         if (this.getDistance(voidNode, other) < GAME_CONFIG.VOID_CONSUMPTION_RADIUS) {
           this.ripples.push(new Ripple(other.x, other.y, '#000000', GAME_CONFIG.PULSE_RADIUS * 0.5));
+          this.particles.spawnBurst(other.x, other.y, '#000000', 15);
           this.audio.playMerge(1);
           if ('vibrate' in navigator) {
             navigator.vibrate([30, 50, 30]);
@@ -241,18 +300,68 @@ export class Game {
     }
   }
 
-  private checkMerges() {
+  private handleSupernovas() {
     for (let i = 0; i < this.nodes.length; i++) {
-      for (let j = i + 1; j < this.nodes.length; j++) {
-        const a = this.nodes[i];
-        const b = this.nodes[j];
-        const canMerge = (a.level === b.level) || (a.type === NodeType.STAR) || (b.type === NodeType.STAR);
-        if (canMerge && this.getDistance(a, b) < a.radius * 2) {
-          if (a.type === NodeType.VOID || b.type === NodeType.VOID) continue;
-          this.mergeNodes(i, j);
-          return; 
+      const node = this.nodes[i];
+      if (node.type !== NodeType.SUPERNOVA) continue;
+
+      for (let j = 0; j < this.nodes.length; j++) {
+        if (i === j) continue;
+        const other = this.nodes[j];
+        if (this.getDistance(node, other) < node.radius * 2) {
+          this.triggerSupernova(node);
+          return;
         }
       }
+    }
+  }
+
+  private triggerSupernova(supernova: Node) {
+    const { gridX, gridY, x, y } = supernova;
+    
+    this.supernovaTriggered = true;
+    this.ripples.push(new Ripple(x, y, '#FF4500', GAME_CONFIG.PULSE_RADIUS * 2));
+    this.particles.spawnBurst(x, y, '#FF4500', 100);
+    this.triggerShake(20, 400);
+    this.audio.playSingularity(); 
+    if ('vibrate' in navigator) {
+      navigator.vibrate([100, 50, 100]);
+    }
+
+    this.nodes = this.nodes.filter(node => {
+      const isInside = Math.abs(node.gridX - gridX) <= 1 && Math.abs(node.gridY - gridY) <= 1;
+      if (isInside && node !== supernova) {
+        this.particles.spawnBurst(node.x, node.y, node.color, 10);
+        this.score += 50;
+      }
+      return !isInside;
+    });
+    
+    this.overlay.updateScore(this.score);
+  }
+
+  private checkMerges() {
+    let mergeOccurred = false;
+    let cascadeCount = 0;
+    const MAX_CASCADES = 5;
+
+    while (!mergeOccurred && cascadeCount < MAX_CASCADES) {
+      for (let i = 0; i < this.nodes.length; i++) {
+        for (let j = i + 1; j < this.nodes.length; j++) {
+          const a = this.nodes[i];
+          const b = this.nodes[j];
+          const canMerge = (a.level === b.level) || (a.type === NodeType.STAR) || (b.type === NodeType.STAR);
+          if (canMerge && this.getDistance(a, b) < a.radius * 2) {
+            if (a.type === NodeType.VOID || b.type === NodeType.VOID) continue;
+            this.mergeNodes(i, j);
+            mergeOccurred = true;
+            cascadeCount++;
+            break; 
+          }
+        }
+        if (mergeOccurred) break;
+      }
+      if (!mergeOccurred) break;
     }
   }
 
@@ -275,10 +384,12 @@ export class Game {
     if (newLevel > 5) {
       this.isWin = true;
       this.audio.playSingularity();
+      this.triggerShake(15, 500);
       if ('vibrate' in navigator) {
         navigator.vibrate([200, 100, 200]);
       }
       this.overlay.showWin();
+      this.stop();
       return;
     }
 
@@ -294,6 +405,8 @@ export class Game {
     this.updateNodeColor(mergedNode);
     mergedNode.scale = 1.6;
     this.ripples.push(new Ripple(newX, newY, mergedNode.color, GAME_CONFIG.PULSE_RADIUS));
+    this.particles.spawnBurst(newX, newY, mergedNode.color, 25);
+    this.triggerShake(newLevel * 1.5);
     this.audio.playMerge(newLevel);
     if ('vibrate' in navigator) {
       navigator.vibrate(newLevel >= 4 ? 100 : 50);
@@ -312,6 +425,8 @@ export class Game {
     this.nodes = this.nodes.filter((_, idx) => idx !== indexA && idx !== indexB);
     this.nodes.push(mergedNode);
     this.spawnNode();
+    
+    BadgeManager.checkAchievements(this);
   }
 
   private getDistance(a: Point, b: Node): number {
@@ -322,9 +437,18 @@ export class Game {
     try {
       this.update();
       this.renderer.clear();
+      this.renderer.drawBackground(this.backgroundOffset);
       this.renderer.drawGrid();
+      
+      // Apply screen shake translation
+      this.renderer.applyShake(this.screenShakeIntensity);
+      
       this.nodes.forEach(node => this.renderer.drawNode(node));
       this.ripples.forEach(ripple => this.renderer.drawRipple(ripple));
+      this.renderer.drawParticles(this.particles.getParticles());
+      
+      this.renderer.resetShake();
+      
       this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
     } catch (e) {
       console.error('[Game] Critical loop error:', e);

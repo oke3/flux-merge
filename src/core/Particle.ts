@@ -1,50 +1,45 @@
-export interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  color: string;
-  size: number;
-}
+/* 
+ * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
+ */
+export class Particle {
+  public x: number;
+  public y: number;
+  public vx: number;
+  public vy: number;
+  public life: number;
+  public maxLife: number;
+  public color: string;
+  public size: number;
+  public isDead: boolean = false;
 
-export class ParticleSystem {
-  private particles: Particle[] = [];
-
-  public emit(x: number, y: number, color: string, count: number = 12) {
-    for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 3 + 1;
-      this.particles.push({
-        x,
-        y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        life: 1.0,
-        maxLife: Math.random() * 0.5 + 0.5,
-        color,
-        size: Math.random() * 3 + 1,
-      });
-    }
+  constructor(x: number, y: number, color: string) {
+    this.x = x;
+    this.y = y;
+    
+    // Random velocity for explosion effect
+    const angle = Math.random() * Math.PI * 2;
+    const speed = Math.random() * 3 + 1;
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
+    
+    this.maxLife = Math.random() * 30 + 20;
+    this.life = this.maxLife;
+    this.color = color;
+    this.size = Math.random() * 3 + 1;
   }
 
   public update() {
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const p = this.particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vx *= 0.96;
-      p.vy *= 0.96;
-      p.life -= 0.02;
-
-      if (p.life <= 0) {
-        this.particles.splice(i, 1);
-      }
+    this.x += this.vx;
+    this.y += this.vy;
+    
+    // Add slight gravity/friction
+    this.vx *= 0.98;
+    this.vy *= 0.98;
+    this.vy += 0.05; 
+    
+    this.life--;
+    if (this.life <= 0) {
+      this.isDead = true;
     }
-  }
-
-  public getParticles() {
-    return this.particles;
   }
 }

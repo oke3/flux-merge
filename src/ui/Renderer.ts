@@ -14,6 +14,53 @@ export class Renderer {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
+  public drawBackground(offset: number) {
+    // Layer 1: Distant Small Stars
+    this.ctx.fillStyle = 'white';
+    for (let i = 0; i < 50; i++) {
+      const x = (Math.sin(i) * 10000 + offset * 0.2) % this.canvas.width;
+      const y = (Math.cos(i) * 10000) % this.canvas.height;
+      this.ctx.globalAlpha = 0.3;
+      this.ctx.beginPath();
+      this.ctx.arc(x < 0 ? x + this.canvas.width : x, y, 1, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+
+    // Layer 2: Mid-distance Medium Stars
+    this.ctx.fillStyle = '#B0C4DE';
+    for (let i = 0; i < 30; i++) {
+      const x = (Math.sin(i * 2) * 10000 + offset * 0.5) % this.canvas.width;
+      const y = (Math.cos(i * 2) * 10000) % this.canvas.height;
+      this.ctx.globalAlpha = 0.6;
+      this.ctx.beginPath();
+      this.ctx.arc(x < 0 ? x + this.canvas.width : x, y, 1.5, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+
+    // Layer 3: Close Large Stars
+    this.ctx.fillStyle = '#FFFFFF';
+    for (let i = 0; i < 15; i++) {
+      const x = (Math.sin(i * 3) * 10000 + offset * 1.2) % this.canvas.width;
+      const y = (Math.cos(i * 3) * 10000) % this.canvas.height;
+      this.ctx.globalAlpha = 0.9;
+      this.ctx.beginPath();
+      this.ctx.arc(x < 0 ? x + this.canvas.width : x, y, 2, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+    this.ctx.globalAlpha = 1.0;
+  }
+
+  public applyShake(intensity: number) {
+    if (intensity <= 0) return;
+    const dx = (Math.random() - 0.5) * intensity;
+    const dy = (Math.random() - 0.5) * intensity;
+    this.ctx.translate(dx, dy);
+  }
+
+  public resetShake() {
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
   public drawGrid() {
     const cellSize = this.canvas.width / GAME_CONFIG.GRID_SIZE;
     this.ctx.strokeStyle = COLORS.GLASS_BORDER;
@@ -136,6 +183,19 @@ export class Renderer {
     this.ctx.globalAlpha = ripple.opacity;
     this.ctx.lineWidth = 3;
     this.ctx.stroke();
+    this.ctx.restore();
+  }
+
+  public drawParticles(particles: any[]) {
+    this.ctx.save();
+    particles.forEach(p => {
+      const opacity = p.life / p.maxLife;
+      this.ctx.globalAlpha = opacity;
+      this.ctx.fillStyle = p.color;
+      this.ctx.beginPath();
+      this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      this.ctx.fill();
+    });
     this.ctx.restore();
   }
 }
