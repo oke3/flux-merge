@@ -286,46 +286,46 @@ export class Game {
       this.triggerPulsarWave();
       this.pulsarTimer = this.PULSAR_INTERVAL;
     }
-const magneticStrength = ProfileManager.getAbilityValue('magneticPull', this.profile);
-const strengthMultiplier = this.isFrenzy ? 2.5 : 1;
+    const magneticStrength = ProfileManager.getAbilityValue('magneticPull', this.profile);
+    const strengthMultiplier = this.isFrenzy ? 2.5 : 1;
 
-// Spatial Partitioning: Group nodes by grid cell
-const gridMap: Record<string, Node[]> = {};
-this.nodes.forEach(node => {
-  const key = `${node.gridX},${node.gridY}`;
-  if (!gridMap[key]) gridMap[key] = [];
-  gridMap[key].push(node);
-});
+    // Spatial Partitioning: Group nodes by grid cell
+    const gridMap: Record<string, Node[]> = {};
+    this.nodes.forEach(node => {
+      const key = `${node.gridX},${node.gridY}`;
+      if (!gridMap[key]) gridMap[key] = [];
+      gridMap[key].push(node);
+    });
 
-for (const node of this.nodes) {
-  const nearbyNodes: Node[] = [];
-  // Check current cell and 8 neighbors
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dy = -1; dy <= 1; dy++) {
-      const key = `${node.gridX + dx},${node.gridY + dy}`;
-      if (gridMap[key]) {
-        nearbyNodes.push(...gridMap[key]);
+    for (const node of this.nodes) {
+      const nearbyNodes: Node[] = [];
+      // Check current cell and 8 neighbors
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const key = `${node.gridX + dx},${node.gridY + dy}`;
+          if (gridMap[key]) {
+            nearbyNodes.push(...gridMap[key]);
+          }
+        }
       }
+      Physics.applyMagneticPull(node, nearbyNodes, strengthMultiplier * (magneticStrength / 0.05));
     }
+
+    this.nodes.forEach(node => node.update());
+    this.ripples.forEach(ripple => ripple.update());
+    this.ripples = this.ripples.filter(r => !r.isDead);
+    this.particles.update();
+    
+    if (this.isFrenzy && Math.random() < 0.02) {
+      this.audio.playFrenzySiren();
+    }
+
+    this.handleVoidConsumption();
+    this.handleSupernovas();
+    this.checkMerges();
   }
-  Physics.applyMagneticPull(node, nearbyNodes, strengthMultiplier * (magneticStrength / 0.05));
-}
 
-this.nodes.forEach(node => node.update());
-this.ripples.forEach(ripple => ripple.update());
-this.ripples = this.ripples.filter(r => !r.isDead);
-this.particles.update();
-
-if (this.isFrenzy && Math.random() < 0.02) {
-  this.audio.playFrenzySiren();
-}
-
-this.handleVoidConsumption();
-this.handleSupernovas();
-this.checkMerges();
-}
-
-private triggerPulsarWave() {    const pulsars = this.nodes.filter(n => n.type === NodeType.PULSAR);
+  private triggerPulsarWave() {    const pulsars = this.nodes.filter(n => n.type === NodeType.PULSAR);
     pulsars.forEach(p => {
       this.ripples.push(new Ripple(p.x, p.y, p.color, GAME_CONFIG.PULSE_RADIUS));
       this.particles.spawnBurst(p.x, p.y, p.color, 20);
