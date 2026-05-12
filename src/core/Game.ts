@@ -11,11 +11,12 @@ import { Renderer } from '../ui/Renderer';
 import { Input } from '../ui/Input';
 import { Physics } from './Physics';
 import { Ripple } from './Ripple';
-import { Overlay } from '../ui/Overlay';
+import { UIManager } from '../ui/UIManager';
 import { AudioEngine } from '../assets/AudioEngine';
 import { ParticleSystem } from './ParticleSystem';
 import { StorageManager, type GameSession } from './StorageManager';
 import { BadgeManager } from './BadgeManager';
+import { ProfileManager, type UserProfile } from './ProfileManager';
 import { GAME_CONFIG, THEMES, NodeType } from '../assets/constants';
 
 interface Point {
@@ -28,8 +29,9 @@ export class Game {
   private ripples: Ripple[] = [];
   private particles: ParticleSystem;
   private renderer: Renderer;
-  private overlay: Overlay;
+  private ui: UIManager;
   private audio: AudioEngine;
+  private profile: UserProfile;
   private score: number = 0;
   private highScore: number = 0;
   private currentTheme: string = 'deepSpace';
@@ -42,6 +44,9 @@ export class Game {
   private readonly BASE_SPAWN_INTERVAL = 4000;
   private readonly MIN_SPAWN_INTERVAL = 1200;
   private readonly MAX_DIFFICULTY_SCORE = 2000;
+  private tutorialActive: boolean = true;
+  private pulsarTimer: number = 0;
+  private readonly PULSAR_INTERVAL = 3000;
 
   // Sensory State
   private backgroundOffset: number = 0;
@@ -54,7 +59,6 @@ export class Game {
   private isFrenzy: boolean = false;
   private frenzyTimer: number = 0;
   private readonly COMBO_TIMEOUT = 1500;
-  private readonly FRENZY_DURATION = 5000;
 
   // Achievement State
   private supernovaTriggered: boolean = false;
@@ -65,9 +69,11 @@ export class Game {
   }
 
   constructor() {
+    this.profile = ProfileManager.loadProfile();
+    this.currentTheme = this.profile.settings.theme;
     this.particles = new ParticleSystem();
     this.renderer = new Renderer('gameCanvas');
-    this.overlay = new Overlay();
+    this.ui = new UIManager();
     this.audio = new AudioEngine();
     
     new Input('gameCanvas', {
@@ -94,12 +100,16 @@ export class Game {
     const startBtn = document.getElementById('startBtn');
     if (startBtn) {
       startBtn.onclick = () => {
-        this.overlay.hideIntro();
+        this.ui.hideAll();
         this.isPlaying = true;
         this.audio.playBackgroundAmbience();
         this.initGame();
         this.startTime = performance.now();
         this.gameLoop();
+        
+        if (this.tutorialActive) {
+          this.triggerTutorial(0);
+        }
       };
     }
   }
@@ -149,7 +159,7 @@ export class Game {
 
   private initGame() {
     this.highScore = parseInt(localStorage.getItem('flux-merge-highscore') || '0');
-    this.overlay.updateHighScore(this.highScore);
+    this.ui.updateHighScore(this.highScore);
 
     for (let i = 0; i < 4; i++) {
       this.spawnNode();
@@ -172,7 +182,7 @@ export class Game {
     if (availableCells.length === 0) {
       console.log('[Game] Grid Full - Game Over');
       this.isGameOver = true;
-      this.overlay.showGameOver();
+      this.ui.showGameOver();
       this.stop();
       return;
     }
@@ -182,11 +192,14 @@ export class Game {
     const y = cell.y * cellSize + cellSize / 2;
 
     let type: NodeType = NodeType.STANDARD;
-    if (Math.random() < GAME_CONFIG.SPECIAL_NODE_CHANCE) {
+    const specialChance = ProfileManager.getAbilityValue('specialChance', this.profile);
+    if (Math.random() < specialChance) {
       const rand = Math.random();
       if (rand < 0.1) {
         type = NodeType.SUPERNOVA;
-      } else if (rand < 0.5) {
+      } else if (rand < 0.3) {
+        type = NodeType.PULSAR;
+      } else if (rand < 0.6) {
         type = NodeType.VOID;
       } else {
         type = NodeType.STAR;
@@ -209,6 +222,10 @@ export class Game {
       node.color = '#FFD700';
     } else if (node.type === NodeType.SUPERNOVA) {
       node.color = '#FF4500';
+    } else if (node.type === NodeType.PULSAR) {
+      node.color = '#00FFCC';
+    } else if (node.type === NodeType.PRISM) {
+      node.color = '#FF00FF';
     } else {
       const theme = THEMES[this.currentTheme];
       node.color = theme.levels[node.level];
@@ -233,7 +250,7 @@ export class Game {
       this.comboTimer -= 16.67;
       if (this.comboTimer <= 0) {
         this.comboCount = 1;
-        this.overlay.updateCombo(this.comboCount);
+        this.ui.updateCombo(this.comboCount);
       }
     }
 
@@ -250,10 +267,18 @@ export class Game {
       this.lastSpawnTime = now;
     }
 
+    // Handle Pulsar Repulsion
+    this.pulsarTimer -= 16.67;
+    if (this.pulsarTimer <= 0) {
+      this.triggerPulsarWave();
+      this.pulsarTimer = this.PULSAR_INTERVAL;
+    }
+
+    const magneticStrength = ProfileManager.getAbilityValue('magneticPull', this.profile);
+    const strengthMultiplier = this.isFrenzy ? 2.5 : 1;
     for (let i = 0; i < this.nodes.length; i++) {
       for (let j = i + 1; j < this.nodes.length; j++) {
-        const strengthMultiplier = this.isFrenzy ? 2.5 : 1;
-        Physics.applyMagneticPull(this.nodes[i], this.nodes[j], strengthMultiplier);
+        Physics.applyMagneticPull(this.nodes[i], this.nodes[j], strengthMultiplier * (magneticStrength / 0.05));
       }
     }
 
@@ -269,6 +294,20 @@ export class Game {
     this.handleVoidConsumption();
     this.handleSupernovas();
     this.checkMerges();
+  }
+
+  private triggerPulsarWave() {
+    const pulsars = this.nodes.filter(n => n.type === NodeType.PULSAR);
+    pulsars.forEach(p => {
+      this.ripples.push(new Ripple(p.x, p.y, p.color, GAME_CONFIG.PULSE_RADIUS));
+      this.particles.spawnBurst(p.x, p.y, p.color, 20);
+      
+      this.nodes.forEach(node => {
+        if (node !== p) {
+          Physics.applyRepulsion(node, p.x, p.y, 1.5);
+        }
+      });
+    });
   }
 
   private triggerShake(intensity: number, duration: number = 200) {
@@ -337,7 +376,7 @@ export class Game {
       return !isInside;
     });
     
-    this.overlay.updateScore(this.score);
+    this.ui.updateScore(this.score);
   }
 
   private checkMerges() {
@@ -368,15 +407,22 @@ export class Game {
   private mergeNodes(indexA: number, indexB: number) {
     const a = this.nodes[indexA];
     const b = this.nodes[indexB];
+    
+    if (a.type === NodeType.PRISM || b.type === NodeType.PRISM) {
+      this.handlePrismSplit(a, b);
+      this.nodes = this.nodes.filter((_, idx) => idx !== indexA && idx !== indexB);
+      return;
+    }
+
     const newLevel = a.level + 1;
 
     this.comboCount++;
     this.comboTimer = this.COMBO_TIMEOUT;
-    this.overlay.updateCombo(this.comboCount);
+    this.ui.updateCombo(this.comboCount);
 
     if (this.comboCount >= 3 && !this.isFrenzy) {
       this.isFrenzy = true;
-      this.frenzyTimer = this.FRENZY_DURATION;
+      this.frenzyTimer = ProfileManager.getAbilityValue('frenzyDuration', this.profile);
       this.audio.setAmbiencePitch(1.5);
       this.audio.playFrenzySiren();
     }
@@ -388,7 +434,7 @@ export class Game {
       if ('vibrate' in navigator) {
         navigator.vibrate([200, 100, 200]);
       }
-      this.overlay.showWin();
+      this.ui.showWin();
       this.stop();
       return;
     }
@@ -413,12 +459,17 @@ export class Game {
     }
 
     const multiplier = this.comboCount > 1 ? this.comboCount : 1;
-    this.score += mergedNode.scoreValue * multiplier;
-    this.overlay.updateScore(this.score);
+    const points = mergedNode.scoreValue * multiplier;
+    this.score += points;
+    this.ui.updateScore(this.score);
+
+    // Add XP to profile
+    ProfileManager.addXP(this.profile, points * 0.5);
+    ProfileManager.saveProfile(this.profile);
 
     if (this.score > this.highScore) {
       this.highScore = this.score;
-      this.overlay.updateHighScore(this.highScore);
+      this.ui.updateHighScore(this.highScore);
       localStorage.setItem('flux-merge-highscore', this.highScore.toString());
     }
 
@@ -427,6 +478,51 @@ export class Game {
     this.spawnNode();
     
     BadgeManager.checkAchievements(this);
+  }
+
+  private handlePrismSplit(a: Node, b: Node) {
+    const newX = (a.x + b.x) / 2;
+    const newY = (a.y + b.y) / 2;
+    
+    this.ripples.push(new Ripple(newX, newY, '#FF00FF', GAME_CONFIG.PULSE_RADIUS * 0.7));
+    this.particles.spawnBurst(newX, newY, '#FF00FF', 30);
+    this.audio.playMerge(1);
+
+    const level = Math.max(a.level, b.level);
+    const splitLevel = Math.max(1, level - 1);
+
+    for (let i = 0; i < 2; i++) {
+      const offset = (i === 0 ? -20 : 20);
+      const node = new Node(newX + offset, newY + offset, 0, 0, splitLevel);
+      this.updateNodeColor(node);
+      
+      // Recalculate grid position for the new split node
+      const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
+      node.gridX = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(node.x / cellSize)));
+      node.gridY = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(node.y / cellSize)));
+      
+      this.nodes.push(node);
+    }
+  }
+
+  private triggerTutorial(step: number) {
+    const steps = [
+      'Welcome to the Cosmos. Drag nodes of the same color to merge them.',
+      'Reach the Singularity (Level 5) to win the game.',
+      'Careful! Pulsar nodes (Cyan) push others away, while Prism nodes (Magenta) split apart.',
+      'Earn XP to upgrade your abilities in the Cosmic Profile.'
+    ];
+
+    if (step >= steps.length) {
+      this.tutorialActive = false;
+      return;
+    }
+
+    this.ui.showTutorial(steps[step]);
+    
+    setTimeout(() => {
+      this.triggerTutorial(step + 1);
+    }, 6000);
   }
 
   private getDistance(a: Point, b: Node): number {

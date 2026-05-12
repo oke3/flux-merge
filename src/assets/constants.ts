@@ -3,11 +3,63 @@ export const NodeType = {
   VOID: 'VOID',
   STAR: 'STAR',
   SUPERNOVA: 'SUPERNOVA',
+  PULSAR: 'PULSAR',
+  PRISM: 'PRISM',
 } as const;
 
 export type NodeType = typeof NodeType[keyof typeof NodeType];
 
+export interface Ability {
+  id: string;
+  name: string;
+  description: string;
+  baseValue: number;
+  maxLevel: number;
+  costPerLevel: (level: number) => number;
+}
+
+export interface UserProfile {
+  xp: number;
+  level: number;
+  upgrades: Record<string, number>;
+  unlockedThemes: string[];
+  achievements: string[];
+  settings: {
+    volume: number;
+    theme: string;
+    accessibility: boolean;
+  };
+}
+
+export const ABILITIES: Record<string, Ability> = {
+  magneticPull: {
+    id: 'magneticPull',
+    name: 'Magnetic Attunement',
+    description: 'Increases the strength of the magnetic pull between nodes.',
+    baseValue: 0.05,
+    maxLevel: 5,
+    costPerLevel: (lvl) => Math.floor(100 * Math.pow(1.5, lvl)),
+  },
+  frenzyDuration: {
+    id: 'frenzyDuration',
+    name: 'Temporal Expansion',
+    description: 'Extends the duration of the Frenzy mode.',
+    baseValue: 5000,
+    maxLevel: 5,
+    costPerLevel: (lvl) => Math.floor(150 * Math.pow(1.6, lvl)),
+  },
+  specialChance: {
+    id: 'specialChance',
+    name: 'Cosmic Luck',
+    description: 'Increases the probability of special nodes spawning.',
+    baseValue: 0.1,
+    maxLevel: 5,
+    costPerLevel: (lvl) => Math.floor(200 * Math.pow(1.7, lvl)),
+  },
+};
+
 export const GAME_CONFIG = {
+
   CANVAS_SIZE: 600,
   GRID_SIZE: 6,
   NODE_RADIUS: 30,

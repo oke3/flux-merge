@@ -1,12 +1,15 @@
 /* 
  * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
  */
+import { ProfileManager } from './ProfileManager';
+
 export interface Achievement {
   id: string;
   name: string;
   description: string;
   criteria: (game: any) => boolean;
   unlocked: boolean;
+  reward?: string; // Theme ID or Ability ID
 }
 
 export class BadgeManager {
@@ -24,6 +27,7 @@ export class BadgeManager {
       description: 'Reach a combo of 5 or more.',
       criteria: (game) => game.getCombo() >= 5,
       unlocked: false,
+      reward: 'neonNight',
     },
     {
       id: 'void-master',
@@ -31,6 +35,7 @@ export class BadgeManager {
       description: 'Clean the board with a Supernova.',
       criteria: (game) => game.hasTriggeredSupernova(),
       unlocked: false,
+      reward: 'solarFlare',
     },
     {
       id: 'singularity',
@@ -46,6 +51,14 @@ export class BadgeManager {
       if (!ach.unlocked && ach.criteria(game)) {
         ach.unlocked = true;
         console.log(`🏆 Achievement Unlocked: ${ach.name}`);
+        
+        if (ach.reward) {
+          console.log(`🎁 Reward Unlocked: ${ach.reward}`);
+          const profile = ProfileManager.loadProfile();
+          ProfileManager.unlockTheme(profile, ach.reward);
+          ProfileManager.saveProfile(profile);
+        }
+        
         window.dispatchEvent(new CustomEvent('achievementUnlocked', { detail: ach }));
       }
     });

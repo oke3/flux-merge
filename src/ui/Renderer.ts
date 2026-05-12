@@ -136,6 +136,50 @@ export class Renderer {
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText('★', x, y);
 
+    } else if (node.type === NodeType.PULSAR) {
+      // Pulsar Node Visuals: Pulsing Cyan
+      const pulsarGlow = this.ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * 2);
+      pulsarGlow.addColorStop(0, 'rgba(0, 255, 204, 0.6)');
+      pulsarGlow.addColorStop(1, 'transparent');
+
+      this.ctx.fillStyle = pulsarGlow;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = '#00FFCC';
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = 'white';
+      this.ctx.font = `bold ${radius * 0.8}px Inter, system-ui, sans-serif`;
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText('☼', x, y);
+
+    } else if (node.type === NodeType.PRISM) {
+      // Prism Node Visuals: Shimmering Magenta
+      const prismGlow = this.ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * 2);
+      prismGlow.addColorStop(0, 'rgba(255, 0, 255, 0.6)');
+      prismGlow.addColorStop(1, 'transparent');
+
+      this.ctx.fillStyle = prismGlow;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = '#FF00FF';
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = 'white';
+      this.ctx.font = `bold ${radius * 0.8}px Inter, system-ui, sans-serif`;
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText('⬡', x, y);
+
     } else {
       // Standard Node Visuals
       const glow = this.ctx.createRadialGradient(x, y, radius * 0.8, x, y, radius * 1.5);

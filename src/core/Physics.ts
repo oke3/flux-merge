@@ -49,4 +49,19 @@ export class Physics {
     node.targetX = clampedX * cellSize + cellSize / 2;
     node.targetY = clampedY * cellSize + cellSize / 2;
   }
+
+  /**
+   * Pushes a node away from a source point.
+   */
+  public static applyRepulsion(node: Node, sourceX: number, sourceY: number, strength: number) {
+    const dx = node.x - sourceX;
+    const dy = node.y - sourceY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > 0 && distance < 300) {
+      const force = strength * (1 - distance / 300);
+      node.targetX += (dx / distance) * force * 20;
+      node.targetY += (dy / distance) * force * 20;
+    }
+  }
 }
