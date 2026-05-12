@@ -54,6 +54,14 @@ export class UIManager {
       (btn as HTMLElement).onclick = () => this.showPanel('main');
     });
 
+    // Burger Menu
+    document.getElementById('btn-burger')!.onclick = () => {
+      const mainPanel = this.panels['main'];
+      if (mainPanel) {
+        mainPanel.classList.toggle('active');
+      }
+    };
+
     // Modal Navigation
     document.getElementById('btn-menu-from-over')!.onclick = () => this.showPanel('main');
     document.getElementById('btn-menu-from-win')!.onclick = () => this.showPanel('main');
@@ -95,6 +103,12 @@ export class UIManager {
         this.updateProfileUI();
         this.showToast('Cosmos reset');
       }
+    };
+
+    // Tutorial Toggle
+    document.getElementById('toggle-tutorial')!.onchange = (e) => {
+      const checked = (e.target as HTMLInputElement).checked;
+      window.dispatchEvent(new CustomEvent('tutorialToggled', { detail: checked }));
     };
 
     // Theme Selection
@@ -203,7 +217,9 @@ export class UIManager {
 
   public showGameOver() { this.showPanel('gameOverModal'); }
   public showWin() { this.showPanel('winModal'); }
-  public hideAll() { this.showPanel('main'); }
+  public hideAll() {
+    Object.values(this.panels).forEach(p => p.classList.remove('active'));
+  }
   public hideIntro() { this.showPanel('main'); } // Not used, managed by showPanel
 
   public showTutorial(text: string, duration: number = 4000) {

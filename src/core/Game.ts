@@ -91,6 +91,11 @@ export class Game {
       this.updateNodeColors();
     });
 
+    window.addEventListener('tutorialToggled', (e: Event) => {
+      const customEvent = e as CustomEvent<boolean>;
+      this.tutorialActive = customEvent.detail;
+    });
+
     const savedTheme = localStorage.getItem('flux-merge-theme');
     if (savedTheme) {
       this.currentTheme = savedTheme;
