@@ -248,8 +248,8 @@ export class Game {
     } else if (node.type === NodeType.PRISM) {
       node.color = '#FF00FF';
     } else {
-      const theme = THEMES[this.currentTheme];
-      node.color = theme.levels[node.level];
+      const theme = THEMES[this.currentTheme] || THEMES.deepSpace;
+      node.color = theme.levels[node.level] || '#FFFFFF';
     }
   }
 
@@ -598,7 +598,13 @@ export class Game {
       // Apply screen shake translation
       this.renderer.applyShake(this.screenShakeIntensity);
       
-      this.nodes.forEach(node => this.renderer.drawGameNode(node));
+      this.nodes.forEach((node, idx) => {
+        if (!node) {
+          console.error(`[Game] Null node detected at index ${idx}`);
+          return;
+        }
+        this.renderer.drawGameNode(node);
+      });
       this.ripples.forEach(ripple => this.renderer.drawRipple(ripple));
       this.renderer.drawParticles(this.particles.getParticles());
       
@@ -606,7 +612,14 @@ export class Game {
       
       this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
     } catch (e) {
-      console.error('[Game] Critical loop error:', e);
+      console.error('[Game] CRITICAL CRASH:', e);
+      console.error('[Game] State at crash:', {
+        nodeCount: this.nodes.length,
+        pendingNodes: this.pendingNodes.length,
+        theme: this.currentTheme,
+        isFrenzy: this.isFrenzy,
+        isPlaying: this.isPlaying
+      });
     }
   }
 }
