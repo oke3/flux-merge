@@ -1,92 +1,95 @@
 # 🌌 Flux Merge
 
-**Flux Merge** is a high-polish, sensory-driven merge puzzle game built with TypeScript and Vite. The game challenges players to harness cosmic energy by merging nodes of the same level to reach the ultimate "Singularity."
+**Flux Merge** is a high-fidelity, sensory-driven 3D cosmic merge puzzle game. Players harness the raw power of the universe by merging energetic nodes, navigating complex physics, and striving to achieve the ultimate state of existence: **The Singularity**.
 
-Unlike traditional merge games, Flux Merge emphasizes **"game feel"** through a magnetic physics system and a multi-sensory feedback loop designed to be inclusive and engaging.
-
----
-
-## ✨ Key Features
-
-### 🧠 Inclusive Design
-- **Colorblind Friendly:** Every node level is assigned a unique geometric symbol (○, △, □, ◊, ★). This ensures that players who cannot distinguish colors can still play the game with 100% efficiency.
-- **ADHD-Friendly UX:** 
-  - **Dopamine Loops:** Immediate, satisfying feedback through a combination of visual "pops," ripple effects, and pitch-shifting audio tones.
-  - **Flow State:** A high-intensity "Frenzy Mode" triggered by chain reactions, increasing game speed and reward.
-  - **Low Cognitive Load:** A clean, minimalist "glassmorphism" UI that keeps the focus entirely on the gameplay.
-- **Cross-Platform Fluidity:** A custom coordinate-scaling system allows the game to maintain a consistent internal resolution while adapting its display size to any screen (Mobile, Tablet, or Desktop).
-
-### ⚙️ Core Mechanics
-- **Magnetic Pull:** Nodes of the same level exert a magnetic attraction on one another. During **Frenzy Mode**, this attraction is supercharged.
-- **Special Nodes:** 
-  - **Star Nodes:** Golden wildcards that can merge with any node level.
-  - **Void Nodes:** Cosmic black holes that consume nearby energy to clear the board.
-- **Combo System:** Rapid merges build a multiplier that exponentially increases score gains.
-- **Customization:** A built-in "Theme Lab" allowing players to define their own cosmic color palettes.
-- **Tactile Feedback:** Integrated haptics for mobile devices that provide physical confirmation of merges and cosmic events.
-- **The Singularity:** A progression system where merging leads to higher energy levels, culminating in the achievement of the Singularity (Level 6).
+Built with a "game feel first" philosophy, Flux Merge combines deep strategic progression with an intense, multi-sensory feedback loop designed for maximum engagement and accessibility.
 
 ---
 
-## 🛠️ Technical Stack
+## 🎮 Gameplay & Mechanics
 
+### The Merge Loop
+The core objective is to merge nodes of increasing energy levels. Each successful merge creates a larger, more powerful node, progressing through five distinct cosmic stages:
+1. **Soft Cyan** (○)
+2. **Electric Blue** (△)
+3. **Vivid Purple** (□)
+4. **Deep Magenta** (◊)
+5. **The Singularity** (★) — *The ultimate goal.*
+
+### 🌠 Cosmic Phenomena (Special Nodes)
+The universe is unpredictable. Beyond standard nodes, special cosmic entities can appear:
+- **⭐ Star Nodes:** Golden wildcards that can merge with any node level, breaking the standard progression rules.
+- **⚫ Void Nodes:** Destructive black holes that consume nearby energy to clear space on the board.
+- **🌀 Pulsar Nodes:** Highly unstable entities that emit periodic shockwaves, repelling all nearby objects.
+- **💥 Supernova Nodes:** Rare, high-energy events that trigger massive area-of-effect explosions when they collide.
+- **🌈 Prism Nodes:** Unstable crystalline structures that, upon merging, split into multiple smaller nodes.
+
+### ⚡ Frenzy Mode & Combos
+Chain reactions trigger **Frenzy Mode**. During this high-intensity state:
+- The game speed and rewards accelerate.
+- Magnetic attraction between nodes is supercharged.
+- Audio and visual feedback reach a crescendo, creating a powerful "flow state" experience.
+
+---
+
+## 🚀 Progression & Customization
+
+### 🧬 Cosmic Profile
+Every player possesses a unique Cosmic Profile. By playing, you earn XP to level up and unlock permanent upgrades in the **Ability Tree**:
+- **Magnetic Attunement:** Increases the strength of the magnetic pull between nodes.
+- **Temporal Expansion:** Extends the duration of the high-intensity Frenzy mode.
+- **Cosmic Luck:** Increases the probability of rare special nodes spawning.
+
+### 🎨 Theme Lab
+Express your cosmic identity through the Theme Lab. The game features a sophisticated **Glassmorphism** UI and supports multiple aesthetic presets:
+- **Deep Space:** The classic, calm void of the cosmos.
+- **Neon Night:** A high-contrast, vibrant cyberpunk aesthetic.
+- **Solar Flare:** Intense, warm, and energetic tones.
+
+---
+
+## ♿ Accessibility & Inclusive Design
+
+Flux Merge is built on the principle that cosmic wonder should be accessible to everyone.
+
+- **Visual Accessibility:** Every node level is uniquely identified by a **geometric symbol** (○, △, □, ◊, ★), ensuring players with color vision deficiencies can play with 100% precision.
+- **Neurodivergent-Friendly UX:**
+    - **Dopamine-Positive Feedback:** Satisfying "pop" effects, ripples, and pitch-shifting audio reinforce successful actions.
+    - **Cognitive Load Management:** A clean, minimalist UI prevents sensory overload while maintaining high engagement.
+- **Cross-Platform Fluidity:** A custom coordinate-scaling system ensures a consistent experience across Mobile, Tablet, and Desktop.
+
+---
+
+## 🛠️ Technical Architecture
+
+### The Engine
+Flux Merge utilizes a highly optimized, physics-driven engine:
+- **Rendering:** A sophisticated **3D engine powered by Three.js and WebGL**, providing depth, lighting, and complex particle effects.
+- **Physics:** A custom-built spatial partitioning physics engine handles magnetic forces, collisions, and grid-based interactions.
+- **Audio:** A procedural **Web Audio API** system that generates real-time, pitch-shifting tones to match gameplay intensity.
+
+### The Stack
 - **Language:** TypeScript
 - **Build Tool:** Vite
-- **Rendering:** HTML5 Canvas API (2D Context)
-- **Audio:** Web Audio API (Procedural Tone Generation)
-- **Testing:** Vitest & JSDOM
+- **Graphics:** Three.js / WebGL
+- **Testing:** Vitest / JSDOM
 
 ---
 
-## 🚀 Getting Started
+## 🧪 Quality Assurance
 
-### Installation
-```bash
-npm install
-```
-
-### Development
-```bash
-npm run dev
-```
-
-### Production Build
-```bash
-npm run build
-```
-
----
-
-## 🧪 Quality Assurance & Validation
-
-To maintain a zero-defect codebase, Flux Merge employs a two-tier validation strategy:
-
-### 1. Logic Validation (Vitest)
-We use **Vitest** to verify the mathematical correctness of the game engine.
-- **Physics Tests:** Validates magnetic pull forces, grid snapping, and boundary clamping.
-- **Merge Tests:** Ensures level progression and score calculations are deterministic.
-
-Run tests via:
-```bash
-npm test
-```
-
-### 2. Structural Validation (Build Pipeline)
-To prevent type regressions and runtime crashes, the project is gated by a strict TypeScript build pipeline.
-- **Static Analysis:** `tsc` is used to verify type safety across the entire project.
-- **CI/CD:** GitHub Actions automatically runs the build and test suite on every push to `main` to ensure that no breaking changes are merged.
+We maintain a zero-defect codebase through rigorous validation:
+- **Logic Validation:** Vitest ensures mathematical precision in physics and merge logic.
+- **Static Analysis:** A strict TypeScript pipeline prevents type regressions.
+- **CI/CD:** Automated build and test suites run on every push to ensure stability.
 
 ---
 
 ## 🗺️ Roadmap
 
-### Short Term
-- [ ] **Local Leaderboards:** Expand `localStorage` usage to track multiple high scores and game history.
-- [ ] **Achievement System:** Unlockable badges for specific gameplay milestones.
-
-### Long Term
-- [ ] **Global Competition:** Implement a backend to support global leaderboards and seasonal challenges.
-- [ ] **Advanced VFX:** Integrate WebGL/Three.js for 3D node effects and more complex particle systems.
+- [ ] **Local Leaderboards:** Advanced session tracking and historical high scores.
+- [ ] **Global Competition:** Real-time seasonal challenges and global rankings.
+- [ ] **Advanced VFX:** Enhanced volumetric lighting and shader-based cosmic effects.
 
 ---
 
