@@ -3,11 +3,13 @@
  */
 import { ProfileManager } from './ProfileManager';
 
+import { Game } from './Game';
+
 export interface Achievement {
   id: string;
   name: string;
   description: string;
-  criteria: (game: any) => boolean;
+  criteria: (game: Game) => boolean;
   unlocked: boolean;
   reward?: string; // Theme ID or Ability ID
 }
@@ -18,7 +20,7 @@ export class BadgeManager {
       id: 'first-merge',
       name: 'First Spark',
       description: 'Perform your first node merge.',
-      criteria: (game) => game.score > 0,
+      criteria: (game) => game.getScore() > 0,
       unlocked: false,
     },
     {
@@ -41,12 +43,12 @@ export class BadgeManager {
       id: 'singularity',
       name: 'Singularity',
       description: 'Reach the ultimate energy level.',
-      criteria: (game) => game.isWin,
+      criteria: (game) => game.getIsWin(),
       unlocked: false,
     },
   ];
 
-  public static checkAchievements(game: any) {
+  public static checkAchievements(game: Game) {
     this.achievements.forEach(ach => {
       if (!ach.unlocked && ach.criteria(game)) {
         ach.unlocked = true;

@@ -162,6 +162,9 @@ export class Game {
   }
 
   public hasTriggeredSupernova() { return this.supernovaTriggered; }
+  public getScore() { return this.scoreManager.getScore(); }
+  public getCombo() { return this.scoreManager.getCombo(); }
+  public getIsWin() { return this.isWin; }
 
   private findGameNodeAt(x: number, y: number): GameNode | null {
     return this.nodes.find(n => this.getDistance({x, y}, n) < n.radius * 1.5) || null;
