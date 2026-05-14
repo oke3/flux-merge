@@ -420,28 +420,32 @@ export class Game {
   }
 
   private checkMerges() {
-    let mergeOccurred = false;
     let cascadeCount = 0;
     const MAX_CASCADES = 5;
 
-    while (!mergeOccurred && cascadeCount < MAX_CASCADES) {
+    while (cascadeCount < MAX_CASCADES) {
+      let frameMerges = 0;
       for (let i = 0; i < this.nodes.length; i++) {
+        const a = this.nodes[i];
+        if (a.pendingRemoval) continue;
+
         for (let j = i + 1; j < this.nodes.length; j++) {
-          const a = this.nodes[i];
           const b = this.nodes[j];
-          if (a.pendingRemoval || b.pendingRemoval) continue;
+          if (b.pendingRemoval) continue;
+
           const canMerge = (a.level === b.level) || (a.type === NodeType.STAR) || (b.type === NodeType.STAR);
           if (canMerge && this.getDistance(a, b) < (a.radius * a.scale + b.radius * b.scale)) {
             if (a.type === NodeType.VOID || b.type === NodeType.VOID) continue;
             this.mergeGameNodes(i, j);
-            mergeOccurred = true;
-            cascadeCount++;
+            frameMerges++;
+            // We can't use 'a' or 'b' for more merges this frame
             break; 
           }
         }
-        if (mergeOccurred) break;
       }
-      if (!mergeOccurred) break;
+      
+      if (frameMerges === 0) break;
+      cascadeCount += frameMerges;
     }
   }
 
