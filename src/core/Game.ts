@@ -40,6 +40,7 @@ export class Game {
   private isWin: boolean = false;
   private isPlaying: boolean = false;
   private animationFrameId: number | null = null;
+  private pendingNodes: GameNode[] = [];
   private lastSpawnTime: number = 0;
   private startTime: number = 0;
   private readonly BASE_SPAWN_INTERVAL = 4000;
@@ -329,6 +330,11 @@ export class Game {
     this.handleVoidConsumption();
     this.handleSupernovas();
     this.checkMerges();
+
+    // Final sweep: Remove marked nodes and add new ones
+    this.nodes = this.nodes.filter(node => !node.pendingRemoval);
+    this.nodes.push(...this.pendingNodes);
+    this.pendingNodes = [];
   }
 
   private triggerPulsarWave() {    const pulsars = this.nodes.filter(n => n.type === NodeType.PULSAR);
@@ -366,10 +372,9 @@ export class Game {
           if ('vibrate' in navigator) {
             navigator.vibrate([30, 50, 30]);
           }
-          this.nodes = this.nodes.filter((_, idx) => idx !== j);
+          other.pendingRemoval = true;
           break; 
-        }
-      }
+        }      }
     }
   }
 
@@ -401,13 +406,13 @@ export class Game {
       navigator.vibrate([100, 50, 100]);
     }
 
-    this.nodes = this.nodes.filter(node => {
+    this.nodes.forEach(node => {
       const isInside = Math.abs(node.gridX - gridX) <= 1 && Math.abs(node.gridY - gridY) <= 1;
       if (isInside && node !== supernova) {
         this.particles.spawnBurst(node.x, node.y, node.color, 10);
         this.scoreManager.addScore(50);
+        node.pendingRemoval = true;
       }
-      return !isInside;
     });
     
     // Removed redundant ui.updateScore call
@@ -493,8 +498,9 @@ export class Game {
     const points = mergedGameNode.scoreValue * multiplier;
     this.scoreManager.addScore(points);
 
-    this.nodes = this.nodes.filter((_, idx) => idx !== indexA && idx !== indexB);
-    this.nodes.push(mergedGameNode);
+    a.pendingRemoval = true;
+    b.pendingRemoval = true;
+    this.pendingNodes.push(mergedGameNode);
     this.spawnGameNode();
     
     BadgeManager.checkAchievements(this);
@@ -549,8 +555,10 @@ export class Game {
       
       const node = new GameNode(snappedX, snappedY, gx, gy, splitLevel);
       this.updateGameNodeColor(node);
-      this.nodes.push(node);
+      this.pendingNodes.push(node);
     }
+    a.pendingRemoval = true;
+    b.pendingRemoval = true;
   }
 
   private triggerTutorial() {

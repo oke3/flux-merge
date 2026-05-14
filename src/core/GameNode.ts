@@ -13,6 +13,7 @@ export class GameNode {
   public targetY: number;
   public scale: number = 1;
   public color: string = '#FFFFFF';
+  public pendingRemoval: boolean = false;
 
   constructor(x: number, y: number, gridX: number, gridY: number, level: number = 1, type: NodeType = NodeType.STANDARD) {
     this.x = x;
