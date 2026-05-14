@@ -449,7 +449,8 @@ export class Game {
     
     if (a.type === NodeType.PRISM || b.type === NodeType.PRISM) {
       this.handlePrismSplit(a, b);
-      this.nodes = this.nodes.filter((_, idx) => idx !== indexA && idx !== indexB);
+      a.pendingRemoval = true;
+      b.pendingRemoval = true;
       return;
     }
 
