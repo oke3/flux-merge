@@ -1,14 +1,16 @@
 /* 
  * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
  */
-import { THEMES, ABILITIES } from '../assets/constants';
+import { THEMES, ABILITIES, GameState } from '../assets/constants';
 import { ProfileManager, type UserProfile } from '../core/ProfileManager';
+import type { Game } from '../core/Game';
 
 export class UIManager {
   private scoreElement: HTMLElement;
   private highScoreElement: HTMLElement;
   private comboElement!: HTMLElement;
   private profile: UserProfile;
+  private game!: Game;
 
   // Panels
   private panels: Record<string, HTMLElement> = {};
@@ -27,17 +29,67 @@ export class UIManager {
     this.updateThemeSelector();
   }
 
+  public setGame(game: Game) {
+    this.game = game;
+  }
+
+  public handleStateChange(state: GameState) {
+    // 1. Reset all panels
+    this.hideAll();
+    
+    // 2. Update based on state
+    switch (state) {
+      case GameState.MENU:
+        this.showPanel('main');
+        this.togglePauseButton(false);
+        break;
+      case GameState.PLAYING:
+        this.togglePauseButton(true);
+        break;
+      case GameState.PAUSED:
+        this.showPanel('pause');
+        this.togglePauseButton(false);
+        break;
+      case GameState.GAME_OVER:
+        this.showPanel('gameOverModal');
+        this.togglePauseButton(false);
+        break;
+      case GameState.WIN:
+        this.showPanel('winModal');
+        this.togglePauseButton(false);
+        break;
+    }
+  }
+
   private setupComboDisplay() {
+    // Create a wrapper with fixed height to reserve space and prevent layout shift
     this.comboElement = document.createElement('div');
     this.comboElement.className = 'glass-panel combo-display';
-    this.comboElement.style.cssText = 'position: absolute; top: 80px; left: 50%; transform: translateX(-50%); font-size: 32px; font-weight: bold; color: #FFD700; display: none; transition: all 0.2s ease; z-index: 20;';
-    document.querySelector('.overlay')!.appendChild(this.comboElement);
+    this.comboElement.style.cssText = 'font-size: 32px; font-weight: bold; color: #FFD700; display: none; transition: all 0.2s ease; z-index: 20; text-align: center;';
+
+    const comboWrapper = document.createElement('div');
+    comboWrapper.id = 'combo-wrapper';
+    comboWrapper.style.cssText = 'height: 60px; display: flex; justify-content: center; align-items: center; margin-bottom: 10px; width: 100%;';
+    comboWrapper.appendChild(this.comboElement);
+    
+    const wrapper = document.getElementById('main-wrapper');
+    const container = document.getElementById('game-container');
+    if (wrapper && container) {
+      wrapper.insertBefore(comboWrapper, container);
+    } else {
+      document.querySelector('.overlay')!.appendChild(this.comboElement);
+    }
   }
 
   private setupPanels() {
     const panelIds = ['main', 'profile', 'settings', 'gameOverModal', 'winModal', 'pause'];
     panelIds.forEach(id => {
-      this.panels[id] = document.getElementById(`panel-${id}`) || document.getElementById(id)!;
+      const el = document.getElementById(`panel-${id}`) || document.getElementById(id);
+      if (el) {
+        this.panels[id] = el;
+      } else {
+        console.warn(`[UIManager] Panel #${id} not found in DOM`);
+      }
     });
   }
 
@@ -47,90 +99,104 @@ export class UIManager {
   }
 
   private setupEventListeners() {
+    const safeSetClick = (id: string, handler: () => void) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.onclick = handler;
+      } else {
+        console.warn(`[UIManager] Element #${id} not found in DOM`);
+      }
+    };
+
     // Navigation
-    document.getElementById('btn-profile')!.onclick = () => this.showPanel('profile');
-    document.getElementById('btn-settings')!.onclick = () => this.showPanel('settings');
+    safeSetClick('btn-profile', () => this.showPanel('profile'));
+    safeSetClick('btn-settings', () => this.showPanel('settings'));
     document.querySelectorAll('#btn-back-main').forEach(btn => {
       (btn as HTMLElement).onclick = () => this.showPanel('main');
     });
 
     // Modal Navigation
-    document.getElementById('btn-menu-from-over')!.onclick = () => this.showPanel('main');
-    document.getElementById('btn-menu-from-win')!.onclick = () => this.showPanel('main');
+    safeSetClick('btn-menu-from-over', () => this.game.returnToMenu());
+    safeSetClick('btn-menu-from-win', () => this.game.returnToMenu());
     
-    document.getElementById('btn-retry')!.onclick = () => {
-      this.showPanel('main');
-      document.getElementById('startBtn')!.click();
-    };
-    document.getElementById('btn-retry-win')!.onclick = () => {
-      this.showPanel('main');
-      document.getElementById('startBtn')!.click();
-    };
+    safeSetClick('btn-retry', () => {
+      this.game.restart();
+    });
+    safeSetClick('btn-retry-win', () => {
+      this.game.restart();
+    });
 
     // Settings Actions
-    document.getElementById('btn-load')!.onclick = () => {
+    safeSetClick('btn-load', () => {
       this.profile = ProfileManager.loadProfile();
       this.showToast('Profile Loaded');
-    };
-    document.getElementById('btn-new-game')!.onclick = () => {
+    });
+    safeSetClick('btn-new-game', () => {
       if (confirm('Start a new game? Current progress will be lost.')) {
         this.profile = ProfileManager.resetProfile();
         ProfileManager.saveProfile(this.profile);
         this.updateProfileUI();
         this.showToast('Fresh start begun');
       }
-    };
-    document.getElementById('btn-delete')!.onclick = () => {
+    });
+    safeSetClick('btn-delete', () => {
       if (confirm('Permanently delete all cosmic data?')) {
         ProfileManager.deleteProfile();
         this.profile = ProfileManager.loadProfile();
         this.updateProfileUI();
         this.showToast('Data purged');
       }
-    };
-    document.getElementById('btn-reset')!.onclick = () => {
+    });
+    safeSetClick('btn-reset', () => {
       if (confirm('NUCLEAR RESET: Wipe everything?')) {
         this.profile = ProfileManager.resetProfile();
         ProfileManager.saveProfile(this.profile);
         this.updateProfileUI();
         this.showToast('Cosmos reset');
       }
-    };
+    });
 
     // Tutorial Toggle
-    document.getElementById('toggle-tutorial')!.onchange = (e) => {
-      const checked = (e.target as HTMLInputElement).checked;
-      window.dispatchEvent(new CustomEvent('tutorialToggled', { detail: checked }));
-    };
+    const tutorialToggle = document.getElementById('toggle-tutorial');
+    if (tutorialToggle) {
+      tutorialToggle.onchange = (e) => {
+        const checked = (e.target as HTMLInputElement).checked;
+        window.dispatchEvent(new CustomEvent('tutorialToggled', { detail: checked }));
+      };
+    }
 
     // Pause Menu
-    document.getElementById('btn-pause')!.onclick = () => {
-      window.dispatchEvent(new CustomEvent('gamePause'));
-    };
+    safeSetClick('btn-pause', () => {
+      this.game.pause();
+    });
 
-    document.getElementById('btn-pause-resume')!.onclick = () => {
-      window.dispatchEvent(new CustomEvent('gameResume'));
-    };
+    safeSetClick('btn-pause-resume', () => {
+      this.game.resume();
+    });
 
-    document.getElementById('btn-pause-restart')!.onclick = () => {
-      window.dispatchEvent(new CustomEvent('gameRestart'));
-    };
+    safeSetClick('btn-pause-restart', () => {
+      this.game.restart();
+    });
 
-    document.getElementById('btn-pause-settings')!.onclick = () => {
+    safeSetClick('btn-pause-settings', () => {
       this.showPanel('settings');
-    };
+    });
 
-    document.getElementById('btn-pause-menu')!.onclick = () => {
-      window.dispatchEvent(new CustomEvent('gameReturnToMenu'));
-    };
+    safeSetClick('btn-pause-menu', () => {
+      this.game.returnToMenu();
+    });
   }
 
   public showPanel(id: string) {
-    Object.values(this.panels).forEach(p => p.classList.remove('active'));
+    Object.values(this.panels).forEach(p => {
+      if (p) p.classList.remove('active');
+    });
     const target = this.panels[id];
     if (target) {
       target.classList.add('active');
       if (id === 'profile') this.updateProfileUI();
+    } else {
+      console.error(`[UIManager] Attempted to show non-existent panel: ${id}`);
     }
   }
 
@@ -227,9 +293,18 @@ export class UIManager {
   public showGameOver() { this.showPanel('gameOverModal'); }
   public showWin() { this.showPanel('winModal'); }
   public hideAll() {
-    Object.values(this.panels).forEach(p => p.classList.remove('active'));
+    Object.values(this.panels).forEach(p => {
+      if (p) p.classList.remove('active');
+    });
   }
   public hideIntro() { this.showPanel('main'); } // Not used, managed by showPanel
+
+  public togglePauseButton(visible: boolean) {
+    const controls = document.getElementById('pause-controls');
+    if (controls) {
+      controls.style.display = visible ? 'block' : 'none';
+    }
+  }
 
   public showTutorial(text: string, duration: number = 4000) {
     this.tutorialText.innerText = text;

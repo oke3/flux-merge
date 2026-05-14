@@ -9,6 +9,16 @@ export const NodeType = {
 
 export type NodeType = typeof NodeType[keyof typeof NodeType];
 
+export const GameState = {
+  MENU: 'MENU',
+  PLAYING: 'PLAYING',
+  PAUSED: 'PAUSED',
+  GAME_OVER: 'GAME_OVER',
+  WIN: 'WIN',
+} as const;
+
+export type GameState = typeof GameState[keyof typeof GameState];
+
 export interface Ability {
   id: string;
   name: string;

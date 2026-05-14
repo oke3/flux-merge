@@ -10,7 +10,7 @@ describe('BadgeManager Crash Reproduction', () => {
       getScore: () => 10,
       getCombo: () => 6,
       hasTriggeredSupernova: () => false,
-      isWin: false,
+      getIsWin: () => false,
     } as unknown as Game;
     
     // We expect this NOT to throw an error since game provides the new getters

@@ -19,7 +19,7 @@ import { GameNode } from './GameNode';
  import { StorageManager, type GameSession } from './StorageManager';
  import { BadgeManager } from './BadgeManager';
  import { ProfileManager, type UserProfile } from './ProfileManager';
- import { GAME_CONFIG, THEMES, NodeType } from '../assets/constants';
+ import { GAME_CONFIG, THEMES, NodeType, GameState } from '../assets/constants';
 
 interface Point {
   x: number;
@@ -36,7 +36,6 @@ export class Game {
   private scoreManager: ScoreManager;
   private profile: UserProfile;
   private currentTheme: string = 'deepSpace';
-  private isGameOver: boolean = false;
   private isWin: boolean = false;
   private isPlaying: boolean = false;
   private animationFrameId: number | null = null;
@@ -69,9 +68,10 @@ export class Game {
     return Math.max(this.MIN_SPAWN_INTERVAL, this.BASE_SPAWN_INTERVAL - reduction);
   }
 
-  private isPaused: boolean = false;
+  private currentState: GameState = GameState.MENU;
 
   constructor() {
+    console.log('[Game] Initializing...');
     this.profile = ProfileManager.loadProfile();
     this.currentTheme = this.profile.settings.theme;
     this.particles = new ParticleSystem();
@@ -79,6 +79,8 @@ export class Game {
     this.ui = new UIManager();
     this.audioManager = new AudioManager();
     this.scoreManager = new ScoreManager(this.ui);
+    this.ui.setGame(this);
+    console.log('[Game] Core systems initialized');
     
     new Input('gameCanvas', {
       findNode: (x, y) => this.findGameNodeAt(x, y),
@@ -98,55 +100,72 @@ export class Game {
       this.tutorialActive = customEvent.detail;
     });
 
-    window.addEventListener('gamePause', () => {
-      this.isPaused = true;
-      this.ui.showPanel('pause');
-      this.togglePauseControls(false);
-    });
-
-    window.addEventListener('gameResume', () => {
-      this.isPaused = false;
-      this.ui.hideAll();
-      this.togglePauseControls(true);
-    });
-
-    window.addEventListener('gameRestart', () => {
-      this.ui.hideAll();
-      this.reset();
-      this.isPlaying = true;
-      this.isPaused = false;
-      this.audioManager.startAmbience();
-      this.initGame();
-      this.startTime = performance.now();
-      this.gameLoop();
-      this.togglePauseControls(true);
-    });
-
-    window.addEventListener('gameReturnToMenu', () => {
-      this.stop();
-      this.ui.showPanel('main');
-      this.togglePauseControls(false);
-    });
-
     const savedTheme = localStorage.getItem('flux-merge-theme');
     if (savedTheme) {
       this.currentTheme = savedTheme;
       window.dispatchEvent(new CustomEvent('themeChanged', { detail: savedTheme }));
     }
+    console.log('[Game] Constructor complete');
+    
+    // Set initial UI state
+    this.ui.handleStateChange(this.currentState);
+  }
+
+  public transitionTo(newState: GameState) {
+    console.log(`[Game] Transitioning: ${this.currentState} -> ${newState}`);
+    this.currentState = newState;
+    this.ui.handleStateChange(newState);
+
+    switch (newState) {
+      case GameState.PLAYING:
+        this.isPlaying = true;
+        this.audioManager.startAmbience();
+        break;
+      case GameState.PAUSED:
+        break;
+      case GameState.MENU:
+        this.stop();
+        break;
+      case GameState.GAME_OVER:
+      case GameState.WIN:
+        this.stop();
+        break;
+    }
+  }
+
+  public pause() {
+    if (this.currentState === GameState.PLAYING) {
+      this.transitionTo(GameState.PAUSED);
+    }
+  }
+
+  public resume() {
+    if (this.currentState === GameState.PAUSED) {
+      this.transitionTo(GameState.PLAYING);
+    }
+  }
+
+  public restart() {
+    this.reset();
+    this.initGame();
+    this.startTime = performance.now();
+    this.transitionTo(GameState.PLAYING);
+    this.gameLoop();
+  }
+
+  public returnToMenu() {
+    this.transitionTo(GameState.MENU);
   }
 
   public start() {
     const startBtn = document.getElementById('startBtn');
     if (startBtn) {
       startBtn.onclick = () => {
-        this.ui.hideAll();
         this.reset();
-        this.isPlaying = true;
-        this.audioManager.startAmbience();
         this.initGame();
         this.startTime = performance.now();
+        this.transitionTo(GameState.PLAYING);
         this.gameLoop();
-        this.togglePauseControls(true);
         
         if (this.tutorialActive) {
           this.tutorialStep = 0;
@@ -158,7 +177,6 @@ export class Game {
 
   public stop() {
     this.isPlaying = false;
-    this.togglePauseControls(false);
     if (this.tutorialTimer) {
       clearTimeout(this.tutorialTimer);
       this.tutorialTimer = null;
@@ -170,18 +188,12 @@ export class Game {
     this.saveCurrentSession();
   }
 
-  private togglePauseControls(visible: boolean) {
-    const controls = document.getElementById('pause-controls');
-    if (controls) {
-      controls.style.display = visible ? 'block' : 'none';
-    }
-  }
+  // Removed togglePauseControls helper as it's now in UIManager
 
   public reset() {
     this.nodes = [];
     this.ripples = [];
     this.scoreManager.reset();
-    this.isGameOver = false;
     this.isWin = false;
     this.supernovaTriggered = false;
     this.isFrenzy = false;
@@ -246,9 +258,7 @@ export class Game {
 
     if (availableCells.length === 0) {
       console.log('[Game] Grid Full - Game Over');
-      this.isGameOver = true;
-      this.ui.showGameOver();
-      this.stop();
+      this.transitionTo(GameState.GAME_OVER);
       return;
     }
 
@@ -298,7 +308,7 @@ export class Game {
   }
 
   private update() {
-    if (!this.isPlaying || this.isGameOver || this.isWin || this.isPaused) return;
+    if (this.currentState !== GameState.PLAYING) return;
 
     const now = performance.now();
 
@@ -515,14 +525,7 @@ export class Game {
     }
 
     if (newLevel > 5) {
-      this.isWin = true;
-      this.audioManager.playSingularity();
-      this.triggerShake(15, 500);
-      if ('vibrate' in navigator) {
-        navigator.vibrate([200, 100, 200]);
-      }
-      this.ui.showWin();
-      this.stop();
+      this.transitionTo(GameState.WIN);
       return;
     }
 
@@ -640,7 +643,7 @@ export class Game {
 
   private gameLoop() {
     try {
-      if (!this.isPaused) {
+      if (this.currentState === GameState.PLAYING) {
         this.update();
       }
       
