@@ -101,28 +101,31 @@ export class Game {
     window.addEventListener('gamePause', () => {
       this.isPaused = true;
       this.ui.showPanel('pause');
+      this.togglePauseControls(false);
     });
 
     window.addEventListener('gameResume', () => {
       this.isPaused = false;
-      this.ui.showPanel('main'); // Hide pause menu
+      this.ui.hideAll();
+      this.togglePauseControls(true);
     });
 
     window.addEventListener('gameRestart', () => {
+      this.ui.hideAll();
       this.reset();
       this.isPlaying = true;
       this.isPaused = false;
-      this.ui.hideAll();
       this.audioManager.startAmbience();
       this.initGame();
       this.startTime = performance.now();
       this.gameLoop();
-      this.ui.showPanel('main');
+      this.togglePauseControls(true);
     });
 
     window.addEventListener('gameReturnToMenu', () => {
       this.stop();
       this.ui.showPanel('main');
+      this.togglePauseControls(false);
     });
 
     const savedTheme = localStorage.getItem('flux-merge-theme');
@@ -143,6 +146,7 @@ export class Game {
         this.initGame();
         this.startTime = performance.now();
         this.gameLoop();
+        this.togglePauseControls(true);
         
         if (this.tutorialActive) {
           this.tutorialStep = 0;
@@ -154,6 +158,7 @@ export class Game {
 
   public stop() {
     this.isPlaying = false;
+    this.togglePauseControls(false);
     if (this.tutorialTimer) {
       clearTimeout(this.tutorialTimer);
       this.tutorialTimer = null;
@@ -163,6 +168,13 @@ export class Game {
       this.animationFrameId = null;
     }
     this.saveCurrentSession();
+  }
+
+  private togglePauseControls(visible: boolean) {
+    const controls = document.getElementById('pause-controls');
+    if (controls) {
+      controls.style.display = visible ? 'block' : 'none';
+    }
   }
 
   public reset() {
