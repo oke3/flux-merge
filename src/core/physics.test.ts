@@ -21,8 +21,8 @@ describe('Flux Merge Core Physics', () => {
 
     // nodeA should move towards nodeB (increase X)
     expect(nodeA.targetX).toBeGreaterThan(initialTargetX_A);
-    // nodeB should move towards nodeA (decrease X)
-    expect(nodeB.targetX).toBeLessThan(initialTargetX_B);
+    // nodeB should NOT move during this directional call
+    expect(nodeB.targetX).toBe(initialTargetX_B);
   });
 
   it('should NOT apply magnetic pull to nodes of different levels', () => {

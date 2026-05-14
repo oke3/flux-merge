@@ -27,12 +27,9 @@ export class Physics {
         const distance = Math.sqrt(distanceSq);
         const force = GAME_CONFIG.MAGNETIC_PULL_STRENGTH * (1 - distance / maxPullDistance) * strengthMultiplier;
 
-        // Move nodes slightly towards each other
+        // Move nodeA slightly towards nodeB
         nodeA.targetX += (dx / distance) * force * 10;
         nodeA.targetY += (dy / distance) * force * 10;
-
-        nodeB.targetX -= (dx / distance) * force * 10;
-        nodeB.targetY -= (dy / distance) * force * 10;
       }
     }
   }

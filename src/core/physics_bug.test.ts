@@ -29,7 +29,7 @@ describe('Physics Bug Reproduction', () => {
     Physics.applyMagneticPull(singleCallA, [singleCallB]);
     const singleMoveA = Math.abs(singleCallA.targetX - 100);
 
-    // The doubled movement should be approximately 2x the single movement
-    expect(totalMoveA).toBeCloseTo(singleMoveA * 2, 5);
+    // With the fix, processing symmetrically should result in exactly 1x the single movement for node A
+    expect(totalMoveA).toBeCloseTo(singleMoveA, 5);
   });
 });
