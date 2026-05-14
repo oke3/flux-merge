@@ -318,7 +318,8 @@ export class Game {
       Physics.applyMagneticPull(node, nearbyGameNodes, (strengthMultiplier * (magneticStrength / 0.05)) / 2);
     }
 
-    this.nodes.forEach(node => node.update());
+    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
+    this.nodes.forEach(node => node.update(cellSize, GAME_CONFIG.GRID_SIZE));
     this.ripples.forEach(ripple => ripple.update());
     this.ripples = this.ripples.filter(r => !r.isDead);
     this.particles.update();

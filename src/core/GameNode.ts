@@ -27,10 +27,14 @@ export class GameNode {
     this.radius = GAME_CONFIG.NODE_RADIUS;
   }
 
-  public update() {
+  public update(cellSize: number, gridSize: number) {
     // Smooth interpolation towards target position
     this.x += (this.targetX - this.x) * 0.1;
     this.y += (this.targetY - this.y) * 0.1;
+
+    // Update grid coordinates based on current position
+    this.gridX = Math.max(0, Math.min(gridSize - 1, Math.floor(this.x / cellSize)));
+    this.gridY = Math.max(0, Math.min(gridSize - 1, Math.floor(this.y / cellSize)));
 
     // Smoothly return scale to 1 (squash and stretch recovery)
     this.scale += (1 - this.scale) * 0.15;
