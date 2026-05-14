@@ -428,6 +428,7 @@ export class Game {
         for (let j = i + 1; j < this.nodes.length; j++) {
           const a = this.nodes[i];
           const b = this.nodes[j];
+          if (a.pendingRemoval || b.pendingRemoval) continue;
           const canMerge = (a.level === b.level) || (a.type === NodeType.STAR) || (b.type === NodeType.STAR);
           if (canMerge && this.getDistance(a, b) < (a.radius * a.scale + b.radius * b.scale)) {
             if (a.type === NodeType.VOID || b.type === NodeType.VOID) continue;
