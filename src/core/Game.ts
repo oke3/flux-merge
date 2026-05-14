@@ -69,6 +69,8 @@ export class Game {
     return Math.max(this.MIN_SPAWN_INTERVAL, this.BASE_SPAWN_INTERVAL - reduction);
   }
 
+  private isPaused: boolean = false;
+
   constructor() {
     this.profile = ProfileManager.loadProfile();
     this.currentTheme = this.profile.settings.theme;
@@ -94,6 +96,33 @@ export class Game {
     window.addEventListener('tutorialToggled', (e: Event) => {
       const customEvent = e as CustomEvent<boolean>;
       this.tutorialActive = customEvent.detail;
+    });
+
+    window.addEventListener('gamePause', () => {
+      this.isPaused = true;
+      this.ui.showPanel('pause');
+    });
+
+    window.addEventListener('gameResume', () => {
+      this.isPaused = false;
+      this.ui.showPanel('main'); // Hide pause menu
+    });
+
+    window.addEventListener('gameRestart', () => {
+      this.reset();
+      this.isPlaying = true;
+      this.isPaused = false;
+      this.ui.hideAll();
+      this.audioManager.startAmbience();
+      this.initGame();
+      this.startTime = performance.now();
+      this.gameLoop();
+      this.ui.showPanel('main');
+    });
+
+    window.addEventListener('gameReturnToMenu', () => {
+      this.stop();
+      this.ui.showPanel('main');
     });
 
     const savedTheme = localStorage.getItem('flux-merge-theme');
@@ -257,7 +286,7 @@ export class Game {
   }
 
   private update() {
-    if (!this.isPlaying || this.isGameOver || this.isWin) return;
+    if (!this.isPlaying || this.isGameOver || this.isWin || this.isPaused) return;
 
     const now = performance.now();
 
@@ -599,7 +628,10 @@ export class Game {
 
   private gameLoop() {
     try {
-      this.update();
+      if (!this.isPaused) {
+        this.update();
+      }
+      
       this.renderer.clear();
       this.renderer.drawBackground(this.backgroundOffset);
       this.renderer.drawGrid();

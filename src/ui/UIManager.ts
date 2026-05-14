@@ -35,7 +35,7 @@ export class UIManager {
   }
 
   private setupPanels() {
-    const panelIds = ['main', 'profile', 'settings', 'gameOverModal', 'winModal'];
+    const panelIds = ['main', 'profile', 'settings', 'gameOverModal', 'winModal', 'pause'];
     panelIds.forEach(id => {
       this.panels[id] = document.getElementById(`panel-${id}`) || document.getElementById(id)!;
     });
@@ -103,10 +103,25 @@ export class UIManager {
       window.dispatchEvent(new CustomEvent('tutorialToggled', { detail: checked }));
     };
 
-    // Theme Selection
-    document.getElementById('themeSelect')!.onchange = (e) => {
-      const themeId = (e.target as HTMLSelectElement).value;
-      this.applyTheme(themeId);
+    // Pause Menu
+    document.getElementById('btn-pause')!.onclick = () => {
+      window.dispatchEvent(new CustomEvent('gamePause'));
+    };
+
+    document.getElementById('btn-pause-resume')!.onclick = () => {
+      window.dispatchEvent(new CustomEvent('gameResume'));
+    };
+
+    document.getElementById('btn-pause-restart')!.onclick = () => {
+      window.dispatchEvent(new CustomEvent('gameRestart'));
+    };
+
+    document.getElementById('btn-pause-settings')!.onclick = () => {
+      this.showPanel('settings');
+    };
+
+    document.getElementById('btn-pause-menu')!.onclick = () => {
+      window.dispatchEvent(new CustomEvent('gameReturnToMenu'));
     };
   }
 
@@ -172,7 +187,7 @@ export class UIManager {
     });
   }
 
-  private applyTheme(themeId: string) {
+  public applyTheme(themeId: string) {
     const theme = THEMES[themeId] || THEMES.deepSpace;
     this.profile.settings.theme = themeId;
     ProfileManager.saveProfile(this.profile);
