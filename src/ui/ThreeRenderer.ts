@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three';
 import type { IRenderer } from './IRenderer';
-import { Node } from '../core/Node';
+import { GameNode } from '../core/GameNode';
 import { GAME_CONFIG } from '../assets/constants';
 
 export class ThreeRenderer implements IRenderer {
@@ -13,7 +13,7 @@ export class ThreeRenderer implements IRenderer {
   private renderer: THREE.WebGLRenderer;
   private container: HTMLElement;
   private gridHelper: THREE.GridHelper;
-  private nodesMeshes: Map<Node, THREE.Mesh> = new Map();
+  private nodesMeshes: Map<GameNode, THREE.Mesh> = new Map();
   private ripplesMeshes: Map<any, THREE.Mesh> = new Map();
   private particlesSystem: THREE.Points | null = null;
   private particlesGeometry: THREE.BufferGeometry | null = null;
@@ -77,7 +77,7 @@ export class ThreeRenderer implements IRenderer {
     // Grid is already a persistent object in the scene
   }
 
-  public drawNode(node: Node) {
+  public drawGameNode(node: GameNode) {
     let mesh = this.nodesMeshes.get(node);
 
     if (!mesh) {
@@ -197,7 +197,7 @@ export class ThreeRenderer implements IRenderer {
     this.renderer.render(this.scene, this.camera);
   }
 
-  public removeNodeMesh(node: Node) {
+  public removeGameNodeMesh(node: GameNode) {
     const mesh = this.nodesMeshes.get(node);
     if (mesh) {
       this.scene.remove(mesh);

@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Physics } from './Physics';
-import { Node } from './Node';
+import { GameNode } from './GameNode';
 import { GAME_CONFIG } from '../assets/constants';
 
 describe('Flux Merge Core Physics', () => {
-  let nodeA: Node;
-  let nodeB: Node;
+  let nodeA: GameNode;
+  let nodeB: GameNode;
 
   beforeEach(() => {
     // Setup two nodes of the same level
-    nodeA = new Node(100, 100, 1, 1, 1);
-    nodeB = new Node(120, 100, 2, 1, 1);
+    nodeA = new GameNode(100, 100, 1, 1, 1);
+    nodeB = new GameNode(120, 100, 2, 1, 1);
   });
 
   it('should apply magnetic pull to nodes of the same level', () => {

@@ -1,6 +1,6 @@
 import { NODE_LEVELS, GAME_CONFIG, NodeType } from '../assets/constants';
 
-export class Node {
+export class GameNode {
   public x: number;
   public y: number;
   public gridX: number;

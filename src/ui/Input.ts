@@ -1,20 +1,20 @@
-import { Node } from '../core/Node';
+import { GameNode } from '../core/GameNode';
 
 export class Input {
   private canvas: HTMLCanvasElement;
-  private findNode: (x: number, y: number) => Node | null;
-  private onDragStart: (node: Node) => void;
-  private onDragMove: (node: Node, x: number, y: number) => void;
-  private onDragEnd: (node: Node) => void;
-  private draggedNode: Node | null = null;
+  private findNode: (x: number, y: number) => GameNode | null;
+  private onDragStart: (node: GameNode) => void;
+  private onDragMove: (node: GameNode, x: number, y: number) => void;
+  private onDragEnd: (node: GameNode) => void;
+  private draggedNode: GameNode | null = null;
 
   constructor(
     canvasId: string, 
     config: {
-      findNode: (x: number, y: number) => Node | null,
-      onDragStart: (node: Node) => void,
-      onDragMove: (node: Node, x: number, y: number) => void,
-      onDragEnd: (node: Node) => void,
+      findNode: (x: number, y: number) => GameNode | null,
+      onDragStart: (node: GameNode) => void,
+      onDragMove: (node: GameNode, x: number, y: number) => void,
+      onDragEnd: (node: GameNode) => void,
     }
   ) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;

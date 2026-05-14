@@ -2,14 +2,14 @@
  * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
  * Proprietary and confidential. Reverse engineering prohibited.
  */
-import { Node } from '../core/Node';
+import { GameNode } from '../core/GameNode';
 import { GAME_CONFIG } from '../assets/constants';
 
 export class Physics {
   /**
    * Calculates and applies a magnetic pull between a node and a list of potential targets.
    */
-  public static applyMagneticPull(nodeA: Node, targets: Node[], strengthMultiplier: number = 1) {
+  public static applyMagneticPull(nodeA: GameNode, targets: GameNode[], strengthMultiplier: number = 1) {
     for (const nodeB of targets) {
       if (nodeA === nodeB) continue;
       if (nodeA.level !== nodeB.level) continue;
@@ -40,7 +40,7 @@ export class Physics {
   /**
    * Snaps a node to the nearest grid center.
    */
-  public static snapToGrid(node: Node) {
+  public static snapToGrid(node: GameNode) {
     const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
     const gridX = Math.floor(node.x / cellSize);
     const gridY = Math.floor(node.y / cellSize);
@@ -58,7 +58,7 @@ export class Physics {
   /**
    * Pushes a node away from a source point.
    */
-  public static applyRepulsion(node: Node, sourceX: number, sourceY: number, strength: number) {
+  public static applyRepulsion(node: GameNode, sourceX: number, sourceY: number, strength: number) {
     const dx = node.x - sourceX;
     const dy = node.y - sourceY;
     const distance = Math.sqrt(dx * dx + dy * dy);

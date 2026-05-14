@@ -1,4 +1,4 @@
-import { Node } from '../core/Node';
+import { GameNode } from '../core/GameNode';
 import type { IRenderer } from './IRenderer';
 import { GAME_CONFIG, COLORS, NODE_LEVELS, NodeType } from '../assets/constants';
 
@@ -82,7 +82,7 @@ export class Renderer implements IRenderer {
     }
   }
 
-  public drawNode(node: Node) {
+  public drawGameNode(node: GameNode) {
     const { x, y, radius, color, scale } = node;
 
     this.ctx.save();
@@ -91,7 +91,7 @@ export class Renderer implements IRenderer {
     this.ctx.translate(-x, -y);
 
     if (node.type === NodeType.VOID) {
-      // Void Node Visuals: Black Hole
+      // Void GameNode Visuals: Black Hole
       const voidGlow = this.ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * 2);
       voidGlow.addColorStop(0, 'rgba(0, 0, 0, 1)');
       voidGlow.addColorStop(0.5, 'rgba(50, 0, 100, 0.3)');
@@ -115,7 +115,7 @@ export class Renderer implements IRenderer {
       this.ctx.stroke();
 
     } else if (node.type === NodeType.STAR) {
-      // Star Node Visuals: Shimmering Gold
+      // Star GameNode Visuals: Shimmering Gold
       const starGlow = this.ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * 2);
       starGlow.addColorStop(0, 'rgba(255, 215, 0, 0.8)');
       starGlow.addColorStop(1, 'transparent');
@@ -138,7 +138,7 @@ export class Renderer implements IRenderer {
       this.ctx.fillText('★', x, y);
 
     } else if (node.type === NodeType.PULSAR) {
-      // Pulsar Node Visuals: Pulsing Cyan
+      // Pulsar GameNode Visuals: Pulsing Cyan
       const pulsarGlow = this.ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * 2);
       pulsarGlow.addColorStop(0, 'rgba(0, 255, 204, 0.6)');
       pulsarGlow.addColorStop(1, 'transparent');
@@ -160,7 +160,7 @@ export class Renderer implements IRenderer {
       this.ctx.fillText('☼', x, y);
 
     } else if (node.type === NodeType.PRISM) {
-      // Prism Node Visuals: Shimmering Magenta
+      // Prism GameNode Visuals: Shimmering Magenta
       const prismGlow = this.ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * 2);
       prismGlow.addColorStop(0, 'rgba(255, 0, 255, 0.6)');
       prismGlow.addColorStop(1, 'transparent');
@@ -182,7 +182,7 @@ export class Renderer implements IRenderer {
       this.ctx.fillText('⬡', x, y);
 
     } else {
-      // Standard Node Visuals
+      // Standard GameNode Visuals
       const glow = this.ctx.createRadialGradient(x, y, radius * 0.8, x, y, radius * 1.5);
       glow.addColorStop(0, color);
       glow.addColorStop(1, 'transparent');

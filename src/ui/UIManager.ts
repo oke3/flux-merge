@@ -193,9 +193,11 @@ export class UIManager {
     }
     this.comboElement.style.display = 'block';
     this.comboElement.innerText = `COMBO x${combo}`;
-    this.comboElement.style.transform = 'translateX(-50%) scale(1.2)';
+    
+    // Pulse effect
+    this.comboElement.style.transform = 'scale(1.2)';
     setTimeout(() => {
-      this.comboElement.style.transform = 'translateX(-50%) scale(1)';
+      this.comboElement.style.transform = 'scale(1)';
     }, 100);
   }
 

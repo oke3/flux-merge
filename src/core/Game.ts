@@ -6,19 +6,20 @@
  * Flux Merge Core Game Engine
  * Version: 1.0.1 - Stability Update
  */
-import { Node } from './Node';
-import type { IRenderer } from '../ui/IRenderer';
-import { Renderer } from '../ui/Renderer';
-import { Input } from '../ui/Input';
-import { Physics } from './Physics';
-import { Ripple } from './Ripple';
-import { UIManager } from '../ui/UIManager';
-import { AudioEngine } from '../assets/AudioEngine';
-import { ParticleSystem } from './ParticleSystem';
-import { StorageManager, type GameSession } from './StorageManager';
-import { BadgeManager } from './BadgeManager';
-import { ProfileManager, type UserProfile } from './ProfileManager';
-import { GAME_CONFIG, THEMES, NodeType } from '../assets/constants';
+import { GameNode } from './GameNode';
+ import type { IRenderer } from '../ui/IRenderer';
+ import { Renderer } from '../ui/Renderer';
+ import { ScoreManager } from './ScoreManager';
+ import { AudioManager } from './AudioManager';
+ import { Input } from '../ui/Input';
+ import { Physics } from './Physics';
+ import { Ripple } from './Ripple';
+ import { UIManager } from '../ui/UIManager';
+ import { ParticleSystem } from './ParticleSystem';
+ import { StorageManager, type GameSession } from './StorageManager';
+ import { BadgeManager } from './BadgeManager';
+ import { ProfileManager, type UserProfile } from './ProfileManager';
+ import { GAME_CONFIG, THEMES, NodeType } from '../assets/constants';
 
 interface Point {
   x: number;
@@ -26,15 +27,14 @@ interface Point {
 }
 
 export class Game {
-  private nodes: Node[] = [];
+  private nodes: GameNode[] = [];
   private ripples: Ripple[] = [];
   private particles: ParticleSystem;
   private renderer: IRenderer;
   private ui: UIManager;
-  private audio: AudioEngine;
+  private audioManager: AudioManager;
+  private scoreManager: ScoreManager;
   private profile: UserProfile;
-  private score: number = 0;
-  private highScore: number = 0;
   private currentTheme: string = 'deepSpace';
   private isGameOver: boolean = false;
   private isWin: boolean = false;
@@ -57,17 +57,14 @@ export class Game {
   private screenShakeDuration: number = 0;
 
   // Combo & Frenzy State
-  private comboCount: number = 1;
-  private comboTimer: number = 0;
   private isFrenzy: boolean = false;
   private frenzyTimer: number = 0;
-  private readonly COMBO_TIMEOUT = 1500;
 
   // Achievement State
   private supernovaTriggered: boolean = false;
 
   private get currentSpawnInterval(): number {
-    const reduction = (this.score / this.MAX_DIFFICULTY_SCORE) * (this.BASE_SPAWN_INTERVAL - this.MIN_SPAWN_INTERVAL);
+    const reduction = (this.scoreManager.getScore() / this.MAX_DIFFICULTY_SCORE) * (this.BASE_SPAWN_INTERVAL - this.MIN_SPAWN_INTERVAL);
     return Math.max(this.MIN_SPAWN_INTERVAL, this.BASE_SPAWN_INTERVAL - reduction);
   }
 
@@ -77,10 +74,11 @@ export class Game {
     this.particles = new ParticleSystem();
     this.renderer = new Renderer('gameCanvas');
     this.ui = new UIManager();
-    this.audio = new AudioEngine();
+    this.audioManager = new AudioManager();
+    this.scoreManager = new ScoreManager(this.ui);
     
     new Input('gameCanvas', {
-      findNode: (x, y) => this.findNodeAt(x, y),
+      findNode: (x, y) => this.findGameNodeAt(x, y),
       onDragStart: (node) => this.handleDragStart(node),
       onDragMove: (node, x, y) => this.handleDragMove(node, x, y),
       onDragEnd: (node) => this.handleDragEnd(node),
@@ -89,7 +87,7 @@ export class Game {
     window.addEventListener('themeChanged', (e: Event) => {
       const customEvent = e as CustomEvent<string>;
       this.currentTheme = customEvent.detail;
-      this.updateNodeColors();
+      this.updateGameNodeColors();
     });
 
     window.addEventListener('tutorialToggled', (e: Event) => {
@@ -109,8 +107,9 @@ export class Game {
     if (startBtn) {
       startBtn.onclick = () => {
         this.ui.hideAll();
+        this.reset();
         this.isPlaying = true;
-        this.audio.playBackgroundAmbience();
+        this.audioManager.startAmbience();
         this.initGame();
         this.startTime = performance.now();
         this.gameLoop();
@@ -136,50 +135,58 @@ export class Game {
     this.saveCurrentSession();
   }
 
+  public reset() {
+    this.nodes = [];
+    this.ripples = [];
+    this.scoreManager.reset();
+    this.isGameOver = false;
+    this.isWin = false;
+    this.supernovaTriggered = false;
+    this.isFrenzy = false;
+    this.frenzyTimer = 0;
+  }
+
   private saveCurrentSession() {
+
     const duration = Math.floor((performance.now() - this.startTime) / 1000);
     const maxLevel = this.nodes.length > 0 ? Math.max(...this.nodes.map(n => n.level)) : 1;
     
     const session: GameSession = {
       date: new Date().toISOString(),
-      score: this.score,
+      score: this.scoreManager.getScore(),
       maxLevel: maxLevel,
       duration: duration
     };
     StorageManager.saveSession(session);
   }
 
-  public getCombo() { return this.comboCount; }
   public hasTriggeredSupernova() { return this.supernovaTriggered; }
 
-  private findNodeAt(x: number, y: number): Node | null {
+  private findGameNodeAt(x: number, y: number): GameNode | null {
     return this.nodes.find(n => this.getDistance({x, y}, n) < n.radius * 1.5) || null;
   }
 
-  private handleDragStart(node: Node) {
+  private handleDragStart(node: GameNode) {
     node.isDragging = true;
   }
 
-  private handleDragMove(node: Node, x: number, y: number) {
+  private handleDragMove(node: GameNode, x: number, y: number) {
     node.targetX = x;
     node.targetY = y;
   }
 
-  private handleDragEnd(node: Node) {
+  private handleDragEnd(node: GameNode) {
     Physics.snapToGrid(node);
     node.isDragging = false;
   }
 
   private initGame() {
-    this.highScore = parseInt(localStorage.getItem('flux-merge-highscore') || '0');
-    this.ui.updateHighScore(this.highScore);
-
     for (let i = 0; i < 4; i++) {
-      this.spawnNode();
+      this.spawnGameNode();
     }
   }
 
-  private spawnNode() {
+  private spawnGameNode() {
     const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
     const occupied = new Set(this.nodes.map(n => `${n.gridX},${n.gridY}`));
 
@@ -219,16 +226,16 @@ export class Game {
       }
     }
 
-    const node = new Node(x, y, cell.x, cell.y, 1, type);
-    this.updateNodeColor(node);
+    const node = new GameNode(x, y, cell.x, cell.y, 1, type);
+    this.updateGameNodeColor(node);
     this.nodes.push(node);
   }
 
-  private updateNodeColors() {
-    this.nodes.forEach(node => this.updateNodeColor(node));
+  private updateGameNodeColors() {
+    this.nodes.forEach(node => this.updateGameNodeColor(node));
   }
 
-  private updateNodeColor(node: Node) {
+  private updateGameNodeColor(node: GameNode) {
     if (node.type === NodeType.VOID) {
       node.color = '#000000';
     } else if (node.type === NodeType.STAR) {
@@ -259,11 +266,10 @@ export class Game {
       }
     }
 
-    if (this.comboTimer > 0) {
-      this.comboTimer -= 16.67;
-      if (this.comboTimer <= 0) {
-        this.comboCount = 1;
-        this.ui.updateCombo(this.comboCount);
+    if (this.scoreManager.getComboTimer() > 0) {
+      this.scoreManager.updateComboTimer(16.67);
+      if (this.scoreManager.getComboTimer() <= 0) {
+        this.scoreManager.resetCombo();
       }
     }
 
@@ -271,12 +277,12 @@ export class Game {
       this.frenzyTimer -= 16.67;
       if (this.frenzyTimer <= 0) {
         this.isFrenzy = false;
-        this.audio.setAmbiencePitch(1);
+        this.audioManager.stopFrenzyAudio();
       }
     }
 
     if (now - this.lastSpawnTime > this.currentSpawnInterval) {
-      this.spawnNode();
+      this.spawnGameNode();
       this.lastSpawnTime = now;
     }
 
@@ -290,7 +296,7 @@ export class Game {
     const strengthMultiplier = this.isFrenzy ? 2.5 : 1;
 
     // Spatial Partitioning: Group nodes by grid cell
-    const gridMap: Record<string, Node[]> = {};
+    const gridMap: Record<string, GameNode[]> = {};
     this.nodes.forEach(node => {
       const key = `${node.gridX},${node.gridY}`;
       if (!gridMap[key]) gridMap[key] = [];
@@ -298,17 +304,17 @@ export class Game {
     });
 
     for (const node of this.nodes) {
-      const nearbyNodes: Node[] = [];
+      const nearbyGameNodes: GameNode[] = [];
       // Check current cell and 8 neighbors
       for (let dx = -1; dx <= 1; dx++) {
         for (let dy = -1; dy <= 1; dy++) {
           const key = `${node.gridX + dx},${node.gridY + dy}`;
           if (gridMap[key]) {
-            nearbyNodes.push(...gridMap[key]);
+            nearbyGameNodes.push(...gridMap[key]);
           }
         }
       }
-      Physics.applyMagneticPull(node, nearbyNodes, strengthMultiplier * (magneticStrength / 0.05));
+      Physics.applyMagneticPull(node, nearbyGameNodes, (strengthMultiplier * (magneticStrength / 0.05)) / 2);
     }
 
     this.nodes.forEach(node => node.update());
@@ -317,7 +323,7 @@ export class Game {
     this.particles.update();
     
     if (this.isFrenzy && Math.random() < 0.02) {
-      this.audio.playFrenzySiren();
+      this.audioManager.triggerFrenzyAudio();
     }
 
     this.handleVoidConsumption();
@@ -345,18 +351,18 @@ export class Game {
 
   private handleVoidConsumption() {
     for (let i = 0; i < this.nodes.length; i++) {
-      const voidNode = this.nodes[i];
-      if (voidNode.type !== NodeType.VOID) continue;
+      const voidGameNode = this.nodes[i];
+      if (voidGameNode.type !== NodeType.VOID) continue;
 
       for (let j = 0; j < this.nodes.length; j++) {
         if (i === j) continue;
         const other = this.nodes[j];
         if (other.type === NodeType.VOID) continue;
 
-        if (this.getDistance(voidNode, other) < GAME_CONFIG.VOID_CONSUMPTION_RADIUS) {
+        if (this.getDistance(voidGameNode, other) < GAME_CONFIG.VOID_CONSUMPTION_RADIUS) {
           this.ripples.push(new Ripple(other.x, other.y, '#000000', GAME_CONFIG.PULSE_RADIUS * 0.5));
           this.particles.spawnBurst(other.x, other.y, '#000000', 15);
-          this.audio.playMerge(1);
+          this.audioManager.playMerge(1);
           if ('vibrate' in navigator) {
             navigator.vibrate([30, 50, 30]);
           }
@@ -383,14 +389,14 @@ export class Game {
     }
   }
 
-  private triggerSupernova(supernova: Node) {
+  private triggerSupernova(supernova: GameNode) {
     const { gridX, gridY, x, y } = supernova;
     
     this.supernovaTriggered = true;
     this.ripples.push(new Ripple(x, y, '#FF4500', GAME_CONFIG.PULSE_RADIUS * 2));
     this.particles.spawnBurst(x, y, '#FF4500', 100);
     this.triggerShake(20, 400);
-    this.audio.playSingularity(); 
+    this.audioManager.playSingularity(); 
     if ('vibrate' in navigator) {
       navigator.vibrate([100, 50, 100]);
     }
@@ -399,12 +405,12 @@ export class Game {
       const isInside = Math.abs(node.gridX - gridX) <= 1 && Math.abs(node.gridY - gridY) <= 1;
       if (isInside && node !== supernova) {
         this.particles.spawnBurst(node.x, node.y, node.color, 10);
-        this.score += 50;
+        this.scoreManager.addScore(50);
       }
       return !isInside;
     });
     
-    this.ui.updateScore(this.score);
+    // Removed redundant ui.updateScore call
   }
 
   private checkMerges() {
@@ -418,9 +424,9 @@ export class Game {
           const a = this.nodes[i];
           const b = this.nodes[j];
           const canMerge = (a.level === b.level) || (a.type === NodeType.STAR) || (b.type === NodeType.STAR);
-          if (canMerge && this.getDistance(a, b) < a.radius * 2) {
+          if (canMerge && this.getDistance(a, b) < (a.radius * a.scale + b.radius * b.scale)) {
             if (a.type === NodeType.VOID || b.type === NodeType.VOID) continue;
-            this.mergeNodes(i, j);
+            this.mergeGameNodes(i, j);
             mergeOccurred = true;
             cascadeCount++;
             break; 
@@ -432,7 +438,7 @@ export class Game {
     }
   }
 
-  private mergeNodes(indexA: number, indexB: number) {
+  private mergeGameNodes(indexA: number, indexB: number) {
     const a = this.nodes[indexA];
     const b = this.nodes[indexB];
     
@@ -444,20 +450,17 @@ export class Game {
 
     const newLevel = a.level + 1;
 
-    this.comboCount++;
-    this.comboTimer = this.COMBO_TIMEOUT;
-    this.ui.updateCombo(this.comboCount);
+    this.scoreManager.incrementCombo();
 
-    if (this.comboCount >= 3 && !this.isFrenzy) {
+    if (this.scoreManager.getCombo() >= 3 && !this.isFrenzy) {
       this.isFrenzy = true;
       this.frenzyTimer = ProfileManager.getAbilityValue('frenzyDuration', this.profile);
-      this.audio.setAmbiencePitch(1.5);
-      this.audio.playFrenzySiren();
+      this.audioManager.triggerFrenzyAudio();
     }
 
     if (newLevel > 5) {
       this.isWin = true;
-      this.audio.playSingularity();
+      this.audioManager.playSingularity();
       this.triggerShake(15, 500);
       if ('vibrate' in navigator) {
         navigator.vibrate([200, 100, 200]);
@@ -475,46 +478,35 @@ export class Game {
     const snappedX = gridX * cellSize + cellSize / 2;
     const snappedY = gridY * cellSize + cellSize / 2;
 
-    const mergedNode = new Node(snappedX, snappedY, gridX, gridY, newLevel);
-    this.updateNodeColor(mergedNode);
-    mergedNode.scale = 1.6;
-    this.ripples.push(new Ripple(newX, newY, mergedNode.color, GAME_CONFIG.PULSE_RADIUS));
-    this.particles.spawnBurst(newX, newY, mergedNode.color, 25);
+    const mergedGameNode = new GameNode(snappedX, snappedY, gridX, gridY, newLevel);
+    this.updateGameNodeColor(mergedGameNode);
+    mergedGameNode.scale = 1.6;
+    this.ripples.push(new Ripple(newX, newY, mergedGameNode.color, GAME_CONFIG.PULSE_RADIUS));
+    this.particles.spawnBurst(newX, newY, mergedGameNode.color, 25);
     this.triggerShake(newLevel * 1.5);
-    this.audio.playMerge(newLevel);
+    this.audioManager.playMerge(newLevel);
     if ('vibrate' in navigator) {
       navigator.vibrate(newLevel >= 4 ? 100 : 50);
     }
 
-    const multiplier = this.comboCount > 1 ? this.comboCount : 1;
-    const points = mergedNode.scoreValue * multiplier;
-    this.score += points;
-    this.ui.updateScore(this.score);
-
-    // Add XP to profile
-    ProfileManager.addXP(this.profile, points * 0.5);
-    ProfileManager.saveProfile(this.profile);
-
-    if (this.score > this.highScore) {
-      this.highScore = this.score;
-      this.ui.updateHighScore(this.highScore);
-      localStorage.setItem('flux-merge-highscore', this.highScore.toString());
-    }
+    const multiplier = this.scoreManager.getCombo() > 1 ? this.scoreManager.getCombo() : 1;
+    const points = mergedGameNode.scoreValue * multiplier;
+    this.scoreManager.addScore(points);
 
     this.nodes = this.nodes.filter((_, idx) => idx !== indexA && idx !== indexB);
-    this.nodes.push(mergedNode);
-    this.spawnNode();
+    this.nodes.push(mergedGameNode);
+    this.spawnGameNode();
     
     BadgeManager.checkAchievements(this);
   }
 
-  private handlePrismSplit(a: Node, b: Node) {
+  private handlePrismSplit(a: GameNode, b: GameNode) {
     const newX = (a.x + b.x) / 2;
     const newY = (a.y + b.y) / 2;
     
     this.ripples.push(new Ripple(newX, newY, '#FF00FF', GAME_CONFIG.PULSE_RADIUS * 0.7));
     this.particles.spawnBurst(newX, newY, '#FF00FF', 30);
-    this.audio.playMerge(1);
+    this.audioManager.playMerge(1);
 
     const level = Math.max(a.level, b.level);
     const splitLevel = Math.max(1, level - 1);
@@ -555,8 +547,8 @@ export class Game {
       const snappedX = gx * cellSize + cellSize / 2;
       const snappedY = gy * cellSize + cellSize / 2;
       
-      const node = new Node(snappedX, snappedY, gx, gy, splitLevel);
-      this.updateNodeColor(node);
+      const node = new GameNode(snappedX, snappedY, gx, gy, splitLevel);
+      this.updateGameNodeColor(node);
       this.nodes.push(node);
     }
   }
@@ -583,7 +575,7 @@ export class Game {
     }, 6000);
   }
 
-  private getDistance(a: Point, b: Node): number {
+  private getDistance(a: Point, b: GameNode): number {
     return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
   }
 
@@ -597,7 +589,7 @@ export class Game {
       // Apply screen shake translation
       this.renderer.applyShake(this.screenShakeIntensity);
       
-      this.nodes.forEach(node => this.renderer.drawNode(node));
+      this.nodes.forEach(node => this.renderer.drawGameNode(node));
       this.ripples.forEach(ripple => this.renderer.drawRipple(ripple));
       this.renderer.drawParticles(this.particles.getParticles());
       
