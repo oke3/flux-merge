@@ -63,9 +63,14 @@ Flux Merge is built on the principle that cosmic wonder should be accessible to 
 ## 🛠️ Technical Architecture
 
 ### The Engine
-Flux Merge utilizes a highly optimized, physics-driven engine:
+Flux Merge utilizes a highly optimized, decoupled service architecture designed for maximum stability and scalability:
 - **Rendering:** A sophisticated **3D engine powered by Three.js and WebGL**, providing depth, lighting, and complex particle effects.
-- **Physics:** A custom-built spatial partitioning physics engine handles magnetic forces, collisions, and grid-based interactions.
+- **Decoupled Orchestration:** The core engine is split into specialized services to prevent single points of failure:
+    - **`EntityManager`**: Centralizes entity lifecycle, spawning, and spatial queries.
+    - **`CollisionSystem`**: An isolated, deterministic system for merge resolution and recursive cascades.
+    - **`GameStateManager`**: A state-machine based orchestrator for life cycle and transition management.
+    - **`WorldSystem`**: Manages environmental phenomena and sensory effects (Pulsars, Voids, Supernovas).
+- **Physics:** A custom-built spatial partitioning physics engine handles magnetic forces and grid-based interactions.
 - **Audio:** A procedural **Web Audio API** system that generates real-time, pitch-shifting tones to match gameplay intensity.
 
 ### The Stack
@@ -78,7 +83,11 @@ Flux Merge utilizes a highly optimized, physics-driven engine:
 
 ## 🧪 Quality Assurance
 
-We maintain a zero-defect codebase through rigorous validation:
+We maintain a zero-defect codebase through the **Zero-Regression Framework (ZRF)**:
+- **Adversarial Testing:** We employ "attack" scenarios to stress-test the system:
+    - **The Cascade Storm:** Testing deep recursive merges for stack stability.
+    - **The Singularity:** Stressing physics logic under extreme node density.
+    - **The Temporal Fracture:** Validating state consistency during extreme lag spikes.
 - **Logic Validation:** Vitest ensures mathematical precision in physics and merge logic.
 - **Static Analysis:** A strict TypeScript pipeline prevents type regressions.
 - **CI/CD:** Automated build and test suites run on every push to ensure stability.
@@ -87,6 +96,8 @@ We maintain a zero-defect codebase through rigorous validation:
 
 ## 🗺️ Roadmap
 
+- [x] **Architectural Hardening:** Decomposition of the core engine into specialized services (EntityManager, CollisionSystem, GameStateManager, WorldSystem).
+- [x] **Reliability Audit:** Implementation of ZRF adversarial testing to ensure system stability.
 - [ ] **Local Leaderboards:** Advanced session tracking and historical high scores.
 - [ ] **Global Competition:** Real-time seasonal challenges and global rankings.
 - [ ] **Advanced VFX:** Enhanced volumetric lighting and shader-based cosmic effects.

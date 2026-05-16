@@ -7,6 +7,10 @@
  * Version: 1.0.1 - Stability Update
  */
 import { GameNode } from './GameNode';
+import { EntityManager } from './EntityManager';
+import { CollisionSystem, type CollisionHandler } from './CollisionSystem';
+import { GameStateManager, type GameStateListener } from './GameStateManager';
+import { WorldSystem } from './WorldSystem';
  import type { IRenderer } from '../ui/IRenderer';
  import { Renderer } from '../ui/Renderer';
  import { ScoreManager } from './ScoreManager';
@@ -19,15 +23,18 @@ import { GameNode } from './GameNode';
  import { StorageManager, type GameSession } from './StorageManager';
  import { BadgeManager } from './BadgeManager';
  import { ProfileManager, type UserProfile } from './ProfileManager';
- import { GAME_CONFIG, THEMES, NodeType, GameState } from '../assets/constants';
+ import { GAME_CONFIG, NodeType, GameState } from '../assets/constants';
 
 interface Point {
   x: number;
   y: number;
 }
 
-export class Game {
-  private nodes: GameNode[] = [];
+export class Game implements CollisionHandler, GameStateListener {
+  private entityManager: EntityManager;
+  private collisionSystem: CollisionSystem;
+  private stateManager: GameStateManager;
+  private worldSystem: WorldSystem;
   private ripples: Ripple[] = [];
   private particles: ParticleSystem;
   private renderer: IRenderer;
@@ -48,13 +55,70 @@ export class Game {
   private tutorialActive: boolean = true;
   private tutorialStep: number = 0;
   private tutorialTimer: any = null;
-  private pulsarTimer: number = 0;
-  private readonly PULSAR_INTERVAL = 3000;
 
-  // Sensory State
-  private backgroundOffset: number = 0;
-  private screenShakeIntensity: number = 0;
-  private screenShakeDuration: number = 0;
+  public get nodes(): GameNode[] {
+    return this.entityManager.allNodes;
+  }
+
+  public set nodes(value: GameNode[]) {
+    this.entityManager.reset();
+    value.forEach(node => this.entityManager.addNode(node));
+  }
+
+  // CollisionHandler Implementation
+  public addScore(points: number) {
+    this.scoreManager.addScore(points);
+  }
+
+  public incrementCombo() {
+    this.scoreManager.incrementCombo();
+  }
+
+  public triggerFrenzy(duration: number) {
+    this.isFrenzy = true;
+    this.frenzyTimer = duration;
+    this.audioManager.triggerFrenzyAudio();
+  }
+
+  public playMergeSound(level: number) {
+    this.audioManager.playMerge(level);
+  }
+
+  public spawnBurst(x: number, y: number, color: string, count: number) {
+    this.particles.spawnBurst(x, y, color, count);
+  }
+
+  public addRipple(ripple: Ripple) {
+    this.ripples.push(ripple);
+  }
+
+  public triggerShake(intensity: number) {
+    this.worldSystem.triggerShake(intensity);
+  }
+
+  public spawnNode() {
+    this.spawnGameNode();
+  }
+
+  public transitionToWin() {
+    this.transitionTo(GameState.WIN);
+  }
+
+  public checkAchievements() {
+    BadgeManager.checkAchievements(this);
+  }
+
+  public updateNodeColor(node: GameNode, theme: string) {
+    this.entityManager.updateNodeColor(node, theme);
+  }
+
+  public addNode(node: GameNode) {
+    this.entityManager.addNode(node);
+  }
+
+  public getCurrentTheme(): string {
+    return this.currentTheme;
+  }
 
   // Combo & Frenzy State
   private isFrenzy: boolean = false;
@@ -68,12 +132,14 @@ export class Game {
     return Math.max(this.MIN_SPAWN_INTERVAL, this.BASE_SPAWN_INTERVAL - reduction);
   }
 
-  private currentState: GameState = GameState.MENU;
-
   constructor() {
     console.log('[Game] Initializing...');
     this.profile = ProfileManager.loadProfile();
     this.currentTheme = this.profile.settings.theme;
+    this.entityManager = new EntityManager();
+    this.collisionSystem = new CollisionSystem();
+    this.stateManager = new GameStateManager(this);
+    this.worldSystem = new WorldSystem();
     this.particles = new ParticleSystem();
     this.renderer = new Renderer('gameCanvas');
     this.ui = new UIManager();
@@ -108,12 +174,11 @@ export class Game {
     console.log('[Game] Constructor complete');
     
     // Set initial UI state
-    this.ui.handleStateChange(this.currentState);
+    this.ui.handleStateChange(this.stateManager.getCurrentState());
   }
 
-  public transitionTo(newState: GameState) {
-    console.log(`[Game] Transitioning: ${this.currentState} -> ${newState}`);
-    this.currentState = newState;
+  public onStateChange(newState: GameState) {
+    console.log(`[Game] Handling state change to: ${newState}`);
     this.ui.handleStateChange(newState);
 
     switch (newState) {
@@ -133,14 +198,18 @@ export class Game {
     }
   }
 
+  public transitionTo(newState: GameState) {
+    this.stateManager.transitionTo(newState);
+  }
+
   public pause() {
-    if (this.currentState === GameState.PLAYING) {
+    if (this.stateManager.getCurrentState() === GameState.PLAYING) {
       this.transitionTo(GameState.PAUSED);
     }
   }
 
   public resume() {
-    if (this.currentState === GameState.PAUSED) {
+    if (this.stateManager.getCurrentState() === GameState.PAUSED) {
       this.transitionTo(GameState.PLAYING);
     }
   }
@@ -191,7 +260,7 @@ export class Game {
   // Removed togglePauseControls helper as it's now in UIManager
 
   public reset() {
-    this.nodes = [];
+    this.entityManager.reset();
     this.ripples = [];
     this.scoreManager.reset();
     this.isWin = false;
@@ -203,7 +272,7 @@ export class Game {
   private saveCurrentSession() {
 
     const duration = Math.floor((performance.now() - this.startTime) / 1000);
-    const maxLevel = this.nodes.length > 0 ? Math.max(...this.nodes.map(n => n.level)) : 1;
+    const maxLevel = this.entityManager.allNodes.length > 0 ? Math.max(...this.entityManager.allNodes.map(n => n.level)) : 1;
     
     const session: GameSession = {
       date: new Date().toISOString(),
@@ -220,7 +289,7 @@ export class Game {
   public getIsWin() { return this.isWin; }
 
   private findGameNodeAt(x: number, y: number): GameNode | null {
-    return this.nodes.find(n => this.getDistance({x, y}, n) < n.radius * 1.5) || null;
+    return this.entityManager.findNodeAt(x, y);
   }
 
   private handleDragStart(node: GameNode) {
@@ -244,82 +313,23 @@ export class Game {
   }
 
   private spawnGameNode() {
-    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
-    const occupied = new Set(this.nodes.map(n => `${n.gridX},${n.gridY}`));
-
-    const availableCells = [];
-    for (let x = 0; x < GAME_CONFIG.GRID_SIZE; x++) {
-      for (let y = 0; y < GAME_CONFIG.GRID_SIZE; y++) {
-        if (!occupied.has(`${x},${y}`)) {
-          availableCells.push({ x, y });
-        }
-      }
-    }
-
-    if (availableCells.length === 0) {
+    const node = this.entityManager.spawnNode(this.profile, this.currentTheme);
+    if (!node) {
       console.log('[Game] Grid Full - Game Over');
       this.transitionTo(GameState.GAME_OVER);
-      return;
     }
-
-    const cell = availableCells[Math.floor(Math.random() * availableCells.length)];
-    const x = cell.x * cellSize + cellSize / 2;
-    const y = cell.y * cellSize + cellSize / 2;
-
-    let type: NodeType = NodeType.STANDARD;
-    const specialChance = ProfileManager.getAbilityValue('specialChance', this.profile);
-    if (Math.random() < specialChance) {
-      const rand = Math.random();
-      if (rand < 0.1) {
-        type = NodeType.SUPERNOVA;
-      } else if (rand < 0.3) {
-        type = NodeType.PULSAR;
-      } else if (rand < 0.6) {
-        type = NodeType.VOID;
-      } else {
-        type = NodeType.STAR;
-      }
-    }
-
-    const node = new GameNode(x, y, cell.x, cell.y, 1, type);
-    this.updateGameNodeColor(node);
-    this.nodes.push(node);
   }
 
   private updateGameNodeColors() {
-    this.nodes.forEach(node => this.updateGameNodeColor(node));
-  }
-
-  private updateGameNodeColor(node: GameNode) {
-    if (node.type === NodeType.VOID) {
-      node.color = '#000000';
-    } else if (node.type === NodeType.STAR) {
-      node.color = '#FFD700';
-    } else if (node.type === NodeType.SUPERNOVA) {
-      node.color = '#FF4500';
-    } else if (node.type === NodeType.PULSAR) {
-      node.color = '#00FFCC';
-    } else if (node.type === NodeType.PRISM) {
-      node.color = '#FF00FF';
-    } else {
-      const theme = THEMES[this.currentTheme] || THEMES.deepSpace;
-      node.color = theme.levels[node.level] || '#FFFFFF';
-    }
+    this.entityManager.updateAllColors(this.currentTheme);
   }
 
   private update() {
-    if (this.currentState !== GameState.PLAYING) return;
+    if (this.stateManager.getCurrentState() !== GameState.PLAYING) return;
 
     const now = performance.now();
 
-    // Update Sensory State
-    this.backgroundOffset += 0.1;
-    if (this.screenShakeDuration > 0) {
-      this.screenShakeDuration -= 16.67;
-      if (this.screenShakeDuration <= 0) {
-        this.screenShakeIntensity = 0;
-      }
-    }
+    this.worldSystem.update(this.entityManager.allNodes, this, 16.67);
 
     if (this.scoreManager.getComboTimer() > 0) {
       this.scoreManager.updateComboTimer(16.67);
@@ -341,24 +351,18 @@ export class Game {
       this.lastSpawnTime = now;
     }
 
-    // Handle Pulsar Repulsion
-    this.pulsarTimer -= 16.67;
-    if (this.pulsarTimer <= 0) {
-      this.triggerPulsarWave();
-      this.pulsarTimer = this.PULSAR_INTERVAL;
-    }
     const magneticStrength = ProfileManager.getAbilityValue('magneticPull', this.profile);
     const strengthMultiplier = this.isFrenzy ? 2.5 : 1;
 
     // Spatial Partitioning: Group nodes by grid cell
     const gridMap: Record<string, GameNode[]> = {};
-    this.nodes.forEach(node => {
+    this.entityManager.allNodes.forEach(node => {
       const key = `${node.gridX},${node.gridY}`;
       if (!gridMap[key]) gridMap[key] = [];
       gridMap[key].push(node);
     });
 
-    for (const node of this.nodes) {
+    for (const node of this.entityManager.allNodes) {
       const nearbyGameNodes: GameNode[] = [];
       // Check current cell and 8 neighbors
       for (let dx = -1; dx <= 1; dx++) {
@@ -373,7 +377,7 @@ export class Game {
     }
 
     const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
-    this.nodes.forEach(node => node.update(cellSize, GAME_CONFIG.GRID_SIZE));
+    this.entityManager.allNodes.forEach(node => node.update(cellSize, GAME_CONFIG.GRID_SIZE));
     this.ripples.forEach(ripple => ripple.update());
     this.ripples = this.ripples.filter(r => !r.isDead);
     this.particles.update();
@@ -382,42 +386,20 @@ export class Game {
       this.audioManager.triggerFrenzyAudio();
     }
 
-    this.handleVoidConsumption();
-    this.handleSupernovas();
-    this.checkMerges();
+    this.collisionSystem.checkAndResolveMerges(this.entityManager.allNodes, this);
 
-    // Final sweep: Remove marked nodes and add new ones
-    this.nodes = this.nodes.filter(node => !node.pendingRemoval);
-    this.nodes.push(...this.pendingNodes);
-    this.pendingNodes = [];
-  }
-
-  private triggerPulsarWave() {    const pulsars = this.nodes.filter(n => n.type === NodeType.PULSAR);
-    pulsars.forEach(p => {
-      this.ripples.push(new Ripple(p.x, p.y, p.color, GAME_CONFIG.PULSE_RADIUS));
-      this.particles.spawnBurst(p.x, p.y, p.color, 20);
-      
-      this.nodes.forEach(node => {
-        if (node !== p) {
-          Physics.applyRepulsion(node, p.x, p.y, 1.5);
-        }
-      });
-    });
-  }
-
-  private triggerShake(intensity: number, duration: number = 200) {
-    this.screenShakeIntensity = intensity;
-    this.screenShakeDuration = duration;
+    // Final sweep: Remove marked nodes
+    this.entityManager.cleanup();
   }
 
   private handleVoidConsumption() {
-    for (let i = 0; i < this.nodes.length; i++) {
-      const voidGameNode = this.nodes[i];
+    for (let i = 0; i < this.entityManager.allNodes.length; i++) {
+      const voidGameNode = this.entityManager.allNodes[i];
       if (voidGameNode.type !== NodeType.VOID) continue;
 
-      for (let j = 0; j < this.nodes.length; j++) {
+      for (let j = 0; j < this.entityManager.allNodes.length; j++) {
         if (i === j) continue;
-        const other = this.nodes[j];
+        const other = this.entityManager.allNodes[j];
         if (other.type === NodeType.VOID) continue;
 
         if (this.getDistance(voidGameNode, other) < GAME_CONFIG.VOID_CONSUMPTION_RADIUS) {
@@ -434,13 +416,13 @@ export class Game {
   }
 
   private handleSupernovas() {
-    for (let i = 0; i < this.nodes.length; i++) {
-      const node = this.nodes[i];
+    for (let i = 0; i < this.entityManager.allNodes.length; i++) {
+      const node = this.entityManager.allNodes[i];
       if (node.type !== NodeType.SUPERNOVA) continue;
 
-      for (let j = 0; j < this.nodes.length; j++) {
+      for (let j = 0; j < this.entityManager.allNodes.length; j++) {
         if (i === j) continue;
-        const other = this.nodes[j];
+        const other = this.entityManager.allNodes[j];
         if (this.getDistance(node, other) < node.radius * 2) {
           this.triggerSupernova(node);
           return;
@@ -461,7 +443,7 @@ export class Game {
       navigator.vibrate([100, 50, 100]);
     }
 
-    this.nodes.forEach(node => {
+    this.entityManager.allNodes.forEach(node => {
       const isInside = Math.abs(node.gridX - gridX) <= 1 && Math.abs(node.gridY - gridY) <= 1;
       if (isInside && node !== supernova) {
         this.particles.spawnBurst(node.x, node.y, node.color, 10);
@@ -471,148 +453,6 @@ export class Game {
     });
     
     // Removed redundant ui.updateScore call
-  }
-
-  private checkMerges() {
-    let cascadeCount = 0;
-    const MAX_CASCADES = 5;
-
-    while (cascadeCount < MAX_CASCADES) {
-      let frameMerges = 0;
-      for (let i = 0; i < this.nodes.length; i++) {
-        const a = this.nodes[i];
-        if (a.pendingRemoval) continue;
-
-        for (let j = i + 1; j < this.nodes.length; j++) {
-          const b = this.nodes[j];
-          if (b.pendingRemoval) continue;
-
-          const canMerge = (a.level === b.level) || (a.type === NodeType.STAR) || (b.type === NodeType.STAR);
-          if (canMerge && this.getDistance(a, b) < (a.radius * a.scale + b.radius * b.scale)) {
-            if (a.type === NodeType.VOID || b.type === NodeType.VOID) continue;
-            this.mergeGameNodes(i, j);
-            frameMerges++;
-            // We can't use 'a' or 'b' for more merges this frame
-            break; 
-          }
-        }
-      }
-      
-      if (frameMerges === 0) break;
-      cascadeCount += frameMerges;
-    }
-  }
-
-  private mergeGameNodes(indexA: number, indexB: number) {
-    const a = this.nodes[indexA];
-    const b = this.nodes[indexB];
-    
-    if (a.type === NodeType.PRISM || b.type === NodeType.PRISM) {
-      this.handlePrismSplit(a, b);
-      a.pendingRemoval = true;
-      b.pendingRemoval = true;
-      return;
-    }
-
-    const newLevel = a.level + 1;
-
-    this.scoreManager.incrementCombo();
-
-    if (this.scoreManager.getCombo() >= 3 && !this.isFrenzy) {
-      this.isFrenzy = true;
-      this.frenzyTimer = ProfileManager.getAbilityValue('frenzyDuration', this.profile);
-      this.audioManager.triggerFrenzyAudio();
-    }
-
-    if (newLevel > 5) {
-      this.transitionTo(GameState.WIN);
-      return;
-    }
-
-    const newX = (a.x + b.x) / 2;
-    const newY = (a.y + b.y) / 2;
-    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
-    const gridX = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(newX / cellSize)));
-    const gridY = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(newY / cellSize)));
-    const snappedX = gridX * cellSize + cellSize / 2;
-    const snappedY = gridY * cellSize + cellSize / 2;
-
-    const mergedGameNode = new GameNode(snappedX, snappedY, gridX, gridY, newLevel);
-    this.updateGameNodeColor(mergedGameNode);
-    mergedGameNode.scale = 1.6;
-    this.ripples.push(new Ripple(newX, newY, mergedGameNode.color, GAME_CONFIG.PULSE_RADIUS));
-    this.particles.spawnBurst(newX, newY, mergedGameNode.color, 25);
-    this.triggerShake(newLevel * 1.5);
-    this.audioManager.playMerge(newLevel);
-    if ('vibrate' in navigator) {
-      navigator.vibrate(newLevel >= 4 ? 100 : 50);
-    }
-
-    const multiplier = this.scoreManager.getCombo() > 1 ? this.scoreManager.getCombo() : 1;
-    const points = mergedGameNode.scoreValue * multiplier;
-    this.scoreManager.addScore(points);
-
-    a.pendingRemoval = true;
-    b.pendingRemoval = true;
-    this.pendingNodes.push(mergedGameNode);
-    this.spawnGameNode();
-    
-    BadgeManager.checkAchievements(this);
-  }
-
-  private handlePrismSplit(a: GameNode, b: GameNode) {
-    const newX = (a.x + b.x) / 2;
-    const newY = (a.y + b.y) / 2;
-    
-    this.ripples.push(new Ripple(newX, newY, '#FF00FF', GAME_CONFIG.PULSE_RADIUS * 0.7));
-    this.particles.spawnBurst(newX, newY, '#FF00FF', 30);
-    this.audioManager.playMerge(1);
-
-    const level = Math.max(a.level, b.level);
-    const splitLevel = Math.max(1, level - 1);
-
-    // Find nearest available grid cells to prevent overlap
-    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
-    const occupied = new Set(this.nodes.map(n => `${n.gridX},${n.gridY}`));
-    
-    const findNearestAvailable = (targetX: number, targetY: number) => {
-      const targetGridX = Math.floor(targetX / cellSize);
-      const targetGridY = Math.floor(targetY / cellSize);
-      
-      // Search in expanding rings
-      for (let r = 0; r < GAME_CONFIG.GRID_SIZE; r++) {
-        for (let dx = -r; dx <= r; dx++) {
-          for (let dy = -r; dy <= r; dy++) {
-            const gx = targetGridX + dx;
-            const gy = targetGridY + dy;
-            if (gx >= 0 && gx < GAME_CONFIG.GRID_SIZE && gy >= 0 && gy < GAME_CONFIG.GRID_SIZE) {
-              if (!occupied.has(`${gx},${gy}`)) {
-                return { gx, gy };
-              }
-            }
-          }
-        }
-      }
-      return { gx: 0, gy: 0 }; // Fallback
-    };
-
-    for (let i = 0; i < 2; i++) {
-      const offset = (i === 0 ? -20 : 20);
-      const tx = newX + offset;
-      const ty = newY + offset;
-      
-      const { gx, gy } = findNearestAvailable(tx, ty);
-      occupied.add(`${gx},${gy}`);
-      
-      const snappedX = gx * cellSize + cellSize / 2;
-      const snappedY = gy * cellSize + cellSize / 2;
-      
-      const node = new GameNode(snappedX, snappedY, gx, gy, splitLevel);
-      this.updateGameNodeColor(node);
-      this.pendingNodes.push(node);
-    }
-    a.pendingRemoval = true;
-    b.pendingRemoval = true;
   }
 
   private triggerTutorial() {
@@ -643,16 +483,16 @@ export class Game {
 
   private gameLoop() {
     try {
-      if (this.currentState === GameState.PLAYING) {
+      if (this.stateManager.getCurrentState() === GameState.PLAYING) {
         this.update();
       }
       
       this.renderer.clear();
-      this.renderer.drawBackground(this.backgroundOffset);
+      this.renderer.drawBackground(this.worldSystem.getBackgroundOffset());
       this.renderer.drawGrid();
       
       // Apply screen shake translation
-      this.renderer.applyShake(this.screenShakeIntensity);
+      this.renderer.applyShake(this.worldSystem.getScreenShakeIntensity());
       
       this.nodes.forEach((node, idx) => {
         if (!node) {
@@ -674,7 +514,8 @@ export class Game {
         pendingNodes: this.pendingNodes.length,
         theme: this.currentTheme,
         isFrenzy: this.isFrenzy,
-        isPlaying: this.isPlaying
+        isPlaying: this.isPlaying,
+        state: this.stateManager.getCurrentState()
       });
     }
   }
