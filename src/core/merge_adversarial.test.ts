@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Game } from './Game';
 import { GameNode } from './GameNode';
-import { NodeType, GameState } from '../assets/constants';
+import { GameState } from '../assets/constants';
 
 // Minimal mocks for required dependencies
 vi.mock('../ui/UIManager');

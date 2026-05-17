@@ -90,7 +90,7 @@ describe('Attack D: The Rendering Desync', () => {
       if (i % 2 === 0) {
         game.renderer = new Renderer('gameCanvas');
       } else {
-        game.renderer = new ThreeRenderer();
+        game.renderer = new ThreeRenderer('gameCanvas');
       }
       
       game.update();

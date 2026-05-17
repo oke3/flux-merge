@@ -6,6 +6,7 @@ import { GameNode } from './GameNode';
 import { GAME_CONFIG, NodeType } from '../assets/constants';
 import { Ripple } from './Ripple';
 import type { CollisionHandler } from './CollisionSystem';
+import { Physics } from './Physics';
 
 export class WorldSystem {
   private backgroundOffset: number = 0;
@@ -60,13 +61,7 @@ export class WorldSystem {
       
       nodes.forEach(node => {
         if (node !== p) {
-          // Using internal distance check or Physics is okay here, 
-          // but for now we keep it consistent with the original logic.
-          // We'll use the Physics utility for repulsion.
-          // Since WorldSystem doesn't have Physics, we rely on the handler 
-          // or a static Physics call.
-          // Note: Physics.applyRepulsion is static.
-          // import { Physics } from './Physics'; // Will add import
+          Physics.applyRepulsion(node, p.x, p.y, GAME_CONFIG.PULSE_RADIUS);
         }
       });
     });
@@ -90,7 +85,6 @@ export class WorldSystem {
             navigator.vibrate([30, 50, 30]);
           }
           other.pendingRemoval = true;
-          break; 
         }
       }
     }
@@ -119,10 +113,10 @@ export class WorldSystem {
     // For now, we'll just handle the effects.
     handler.addRipple(new Ripple(x, y, '#FF4500', GAME_CONFIG.PULSE_RADIUS * 2));
     handler.spawnBurst(x, y, '#FF4500', 100);
-    handler.triggerShake(20, 400);
+    handler.triggerShake(20);
     handler.playMergeSound(5); // Approximation for Singularity sound if not in handler
     
-    if ('vibrate' in navigator) {
+    if ('vibrate' in navigator && (handler as any).profile?.settings.disableVibration === false) {
       navigator.vibrate([100, 50, 100]);
     }
 

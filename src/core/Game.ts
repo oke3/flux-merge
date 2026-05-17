@@ -23,12 +23,7 @@ import { WorldSystem } from './WorldSystem';
  import { StorageManager, type GameSession } from './StorageManager';
  import { BadgeManager } from './BadgeManager';
  import { ProfileManager, type UserProfile } from './ProfileManager';
- import { GAME_CONFIG, NodeType, GameState } from '../assets/constants';
-
-interface Point {
-  x: number;
-  y: number;
-}
+ import { GAME_CONFIG, GameState } from '../assets/constants';
 
 export class Game implements CollisionHandler, GameStateListener {
   private entityManager: EntityManager;
@@ -39,22 +34,20 @@ export class Game implements CollisionHandler, GameStateListener {
   private particles: ParticleSystem;
   private renderer: IRenderer;
   private ui: UIManager;
-  private audioManager: AudioManager;
-  private scoreManager: ScoreManager;
+  public audioManager: AudioManager;
+  public scoreManager: ScoreManager;
   private profile: UserProfile;
   private currentTheme: string = 'deepSpace';
   private isWin: boolean = false;
   private isPlaying: boolean = false;
   private animationFrameId: number | null = null;
+  private lastFrameTime: number | null = null;
   private pendingNodes: GameNode[] = [];
   private lastSpawnTime: number = 0;
   private startTime: number = 0;
   private readonly BASE_SPAWN_INTERVAL = 4000;
   private readonly MIN_SPAWN_INTERVAL = 1200;
   private readonly MAX_DIFFICULTY_SCORE = 2000;
-  private tutorialActive: boolean = true;
-  private tutorialStep: number = 0;
-  private tutorialTimer: any = null;
 
   public get nodes(): GameNode[] {
     return this.entityManager.allNodes;
@@ -92,8 +85,8 @@ export class Game implements CollisionHandler, GameStateListener {
     this.ripples.push(ripple);
   }
 
-  public triggerShake(intensity: number) {
-    this.worldSystem.triggerShake(intensity);
+  public triggerShake(intensity: number, duration?: number) {
+    this.worldSystem.triggerShake(intensity, duration);
   }
 
   public spawnNode() {
@@ -159,11 +152,6 @@ export class Game implements CollisionHandler, GameStateListener {
       const customEvent = e as CustomEvent<string>;
       this.currentTheme = customEvent.detail;
       this.updateGameNodeColors();
-    });
-
-    window.addEventListener('tutorialToggled', (e: Event) => {
-      const customEvent = e as CustomEvent<boolean>;
-      this.tutorialActive = customEvent.detail;
     });
 
     const savedTheme = localStorage.getItem('flux-merge-theme');
@@ -235,21 +223,12 @@ export class Game implements CollisionHandler, GameStateListener {
         this.startTime = performance.now();
         this.transitionTo(GameState.PLAYING);
         this.gameLoop();
-        
-        if (this.tutorialActive) {
-          this.tutorialStep = 0;
-          this.triggerTutorial();
-        }
       };
     }
   }
 
   public stop() {
     this.isPlaying = false;
-    if (this.tutorialTimer) {
-      clearTimeout(this.tutorialTimer);
-      this.tutorialTimer = null;
-    }
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
@@ -324,22 +303,22 @@ export class Game implements CollisionHandler, GameStateListener {
     this.entityManager.updateAllColors(this.currentTheme);
   }
 
-  private update() {
+  private update(deltaTime: number) {
     if (this.stateManager.getCurrentState() !== GameState.PLAYING) return;
 
     const now = performance.now();
 
-    this.worldSystem.update(this.entityManager.allNodes, this, 16.67);
+    this.worldSystem.update(this.entityManager.allNodes, this, deltaTime);
 
     if (this.scoreManager.getComboTimer() > 0) {
-      this.scoreManager.updateComboTimer(16.67);
+      this.scoreManager.updateComboTimer(deltaTime);
       if (this.scoreManager.getComboTimer() <= 0) {
         this.scoreManager.resetCombo();
       }
     }
 
     if (this.isFrenzy) {
-      this.frenzyTimer -= 16.67;
+      this.frenzyTimer -= deltaTime;
       if (this.frenzyTimer <= 0) {
         this.isFrenzy = false;
         this.audioManager.stopFrenzyAudio();
@@ -388,103 +367,20 @@ export class Game implements CollisionHandler, GameStateListener {
 
     this.collisionSystem.checkAndResolveMerges(this.entityManager.allNodes, this);
 
-    // Final sweep: Remove marked nodes
     this.entityManager.cleanup();
-  }
 
-  private handleVoidConsumption() {
-    for (let i = 0; i < this.entityManager.allNodes.length; i++) {
-      const voidGameNode = this.entityManager.allNodes[i];
-      if (voidGameNode.type !== NodeType.VOID) continue;
-
-      for (let j = 0; j < this.entityManager.allNodes.length; j++) {
-        if (i === j) continue;
-        const other = this.entityManager.allNodes[j];
-        if (other.type === NodeType.VOID) continue;
-
-        if (this.getDistance(voidGameNode, other) < GAME_CONFIG.VOID_CONSUMPTION_RADIUS) {
-          this.ripples.push(new Ripple(other.x, other.y, '#000000', GAME_CONFIG.PULSE_RADIUS * 0.5));
-          this.particles.spawnBurst(other.x, other.y, '#000000', 15);
-          this.audioManager.playMerge(1);
-          if ('vibrate' in navigator) {
-            navigator.vibrate([30, 50, 30]);
-          }
-          other.pendingRemoval = true;
-          break; 
-        }      }
-    }
-  }
-
-  private handleSupernovas() {
-    for (let i = 0; i < this.entityManager.allNodes.length; i++) {
-      const node = this.entityManager.allNodes[i];
-      if (node.type !== NodeType.SUPERNOVA) continue;
-
-      for (let j = 0; j < this.entityManager.allNodes.length; j++) {
-        if (i === j) continue;
-        const other = this.entityManager.allNodes[j];
-        if (this.getDistance(node, other) < node.radius * 2) {
-          this.triggerSupernova(node);
-          return;
-        }
-      }
-    }
-  }
-
-  private triggerSupernova(supernova: GameNode) {
-    const { gridX, gridY, x, y } = supernova;
-    
-    this.supernovaTriggered = true;
-    this.ripples.push(new Ripple(x, y, '#FF4500', GAME_CONFIG.PULSE_RADIUS * 2));
-    this.particles.spawnBurst(x, y, '#FF4500', 100);
-    this.triggerShake(20, 400);
-    this.audioManager.playSingularity(); 
-    if ('vibrate' in navigator) {
-      navigator.vibrate([100, 50, 100]);
-    }
-
-    this.entityManager.allNodes.forEach(node => {
-      const isInside = Math.abs(node.gridX - gridX) <= 1 && Math.abs(node.gridY - gridY) <= 1;
-      if (isInside && node !== supernova) {
-        this.particles.spawnBurst(node.x, node.y, node.color, 10);
-        this.scoreManager.addScore(50);
-        node.pendingRemoval = true;
-      }
-    });
-    
+    // Final sweep: Remove marked nodes
     // Removed redundant ui.updateScore call
-  }
-
-  private triggerTutorial() {
-    const steps = [
-      'Welcome to the Cosmos. Drag nodes of the same color to merge them.',
-      'Reach the Singularity (Level 5) to win the game.',
-      'Careful! Pulsar nodes (Cyan) push others away, while Prism nodes (Magenta) split apart.',
-      'Earn XP to upgrade your abilities in the Cosmic Profile.'
-    ];
-
-    if (this.tutorialStep >= steps.length) {
-      this.tutorialActive = false;
-      this.tutorialStep = 0;
-      return;
     }
-
-    this.ui.showTutorial(steps[this.tutorialStep]);
-    
-    this.tutorialTimer = setTimeout(() => {
-      this.tutorialStep++;
-      this.triggerTutorial();
-    }, 6000);
-  }
-
-  private getDistance(a: Point, b: GameNode): number {
-    return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
-  }
 
   private gameLoop() {
     try {
+      const now = performance.now();
+      const deltaTime = this.lastFrameTime ? now - this.lastFrameTime : 16.67;
+      this.lastFrameTime = now;
+
       if (this.stateManager.getCurrentState() === GameState.PLAYING) {
-        this.update();
+        this.update(deltaTime);
       }
       
       this.renderer.clear();

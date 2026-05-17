@@ -1,32 +1,27 @@
 /* 
  * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
  */
-import { THEMES, ABILITIES, GameState } from '../assets/constants';
-import { ProfileManager, type UserProfile } from '../core/ProfileManager';
-import type { Game } from '../core/Game';
+import { GameState } from '../assets/constants';
+import { ProfileManager } from '../core/ProfileManager';
+import { Game } from '../core/Game';
 
 export class UIManager {
   private scoreElement: HTMLElement;
   private highScoreElement: HTMLElement;
   private comboElement!: HTMLElement;
-  private profile: UserProfile;
   private game!: Game;
 
   // Panels
   private panels: Record<string, HTMLElement> = {};
-  private tutorialBox!: HTMLElement;
-  private tutorialText!: HTMLElement;
 
   constructor() {
-    this.profile = ProfileManager.loadProfile();
     this.scoreElement = document.getElementById('scoreValue')!;
     this.highScoreElement = document.getElementById('highScoreValue')!;
     
     this.setupComboDisplay();
     this.setupPanels();
-    this.setupTutorial();
     this.setupEventListeners();
-    this.updateThemeSelector();
+    this.updateSettingsButtons();
   }
 
   public setGame(game: Game) {
@@ -82,7 +77,7 @@ export class UIManager {
   }
 
   private setupPanels() {
-    const panelIds = ['main', 'profile', 'settings', 'gameOverModal', 'winModal', 'pause'];
+    const panelIds = ['main', 'settings', 'tutorial', 'gameOverModal', 'winModal', 'pause'];
     panelIds.forEach(id => {
       const el = document.getElementById(`panel-${id}`) || document.getElementById(id);
       if (el) {
@@ -91,11 +86,6 @@ export class UIManager {
         console.warn(`[UIManager] Panel #${id} not found in DOM`);
       }
     });
-  }
-
-  private setupTutorial() {
-    this.tutorialBox = document.getElementById('tutorial-box')!;
-    this.tutorialText = document.getElementById('tutorial-text')!;
   }
 
   private setupEventListeners() {
@@ -109,10 +99,22 @@ export class UIManager {
     };
 
     // Navigation
-    safeSetClick('btn-profile', () => this.showPanel('profile'));
     safeSetClick('btn-settings', () => this.showPanel('settings'));
+    safeSetClick('btn-tutorial', () => {
+      this.showPanel('tutorial');
+      this.showTutorialSlide(0);
+    });
     document.querySelectorAll('#btn-back-main').forEach(btn => {
       (btn as HTMLElement).onclick = () => this.showPanel('main');
+    });
+
+    safeSetClick('btn-tutorial-prev', () => {
+      const current = this.getCurrentTutorialSlide();
+      this.showTutorialSlide(current - 1);
+    });
+    safeSetClick('btn-tutorial-next', () => {
+      const current = this.getCurrentTutorialSlide();
+      this.showTutorialSlide(current + 1);
     });
 
     // Modal Navigation
@@ -127,43 +129,28 @@ export class UIManager {
     });
 
     // Settings Actions
-    safeSetClick('btn-load', () => {
-      this.profile = ProfileManager.loadProfile();
-      this.showToast('Profile Loaded');
-    });
-    safeSetClick('btn-new-game', () => {
-      if (confirm('Start a new game? Current progress will be lost.')) {
-        this.profile = ProfileManager.resetProfile();
-        ProfileManager.saveProfile(this.profile);
-        this.updateProfileUI();
-        this.showToast('Fresh start begun');
-      }
-    });
-    safeSetClick('btn-delete', () => {
-      if (confirm('Permanently delete all cosmic data?')) {
-        ProfileManager.deleteProfile();
-        this.profile = ProfileManager.loadProfile();
-        this.updateProfileUI();
-        this.showToast('Data purged');
-      }
-    });
-    safeSetClick('btn-reset', () => {
-      if (confirm('NUCLEAR RESET: Wipe everything?')) {
-        this.profile = ProfileManager.resetProfile();
-        ProfileManager.saveProfile(this.profile);
-        this.updateProfileUI();
-        this.showToast('Cosmos reset');
-      }
+    safeSetClick('btn-reset-score', () => {
+      this.game.scoreManager.resetHighScore();
+      this.showToast('High Score Reset');
     });
 
-    // Tutorial Toggle
-    const tutorialToggle = document.getElementById('toggle-tutorial');
-    if (tutorialToggle) {
-      tutorialToggle.onchange = (e) => {
-        const checked = (e.target as HTMLInputElement).checked;
-        window.dispatchEvent(new CustomEvent('tutorialToggled', { detail: checked }));
-      };
-    }
+    safeSetClick('toggle-mute-sfx', () => {
+      const profile = ProfileManager.loadProfile();
+      profile.settings.muteSfx = !profile.settings.muteSfx;
+      ProfileManager.saveProfile(profile);
+      if (this.game && this.game.audioManager) {
+        this.game.audioManager.updateProfile(profile);
+      }
+      this.updateSettingsButtons();
+      this.showToast('SFX ' + (profile.settings.muteSfx ? 'OFF' : 'ON'));
+    });
+    safeSetClick('toggle-vibrate', () => {
+      const profile = ProfileManager.loadProfile();
+      profile.settings.disableVibration = !profile.settings.disableVibration;
+      ProfileManager.saveProfile(profile);
+      this.updateSettingsButtons();
+      this.showToast('Haptics ' + (profile.settings.disableVibration ? 'OFF' : 'ON'));
+    });
 
     // Pause Menu
     safeSetClick('btn-pause', () => {
@@ -187,6 +174,38 @@ export class UIManager {
     });
   }
 
+  private updateSettingsButtons() {
+    const profile = ProfileManager.loadProfile();
+    const sfxBtn = document.getElementById('toggle-mute-sfx');
+    if (sfxBtn) {
+      sfxBtn.innerText = `SFX: ${profile.settings.muteSfx ? 'OFF' : 'ON'}`;
+    }
+    const vibBtn = document.getElementById('toggle-vibrate');
+    if (vibBtn) {
+      vibBtn.innerText = `Haptics: ${profile.settings.disableVibration ? 'OFF' : 'ON'}`;
+    }
+  }
+
+  private getCurrentTutorialSlide(): number {
+    const activeSlide = document.querySelector('.tutorial-slide.active');
+    return activeSlide ? parseInt(activeSlide.getAttribute('data-slide') || '0') : 0;
+  }
+
+  private showTutorialSlide(index: number) {
+    const slides = document.querySelectorAll('.tutorial-slide');
+    if (slides.length === 0) return;
+
+    slides.forEach((slide, i) => {
+      (slide as HTMLElement).style.display = i === index ? 'block' : 'none';
+      slide.classList.toggle('active', i === index);
+    });
+
+    const prevBtn = document.getElementById('btn-tutorial-prev');
+    const nextBtn = document.getElementById('btn-tutorial-next');
+    if (prevBtn) prevBtn.style.visibility = index === 0 ? 'hidden' : 'visible';
+    if (nextBtn) nextBtn.style.visibility = index === slides.length - 1 ? 'hidden' : 'visible';
+  }
+
   public showPanel(id: string) {
     Object.values(this.panels).forEach(p => {
       if (p) p.classList.remove('active');
@@ -194,77 +213,9 @@ export class UIManager {
     const target = this.panels[id];
     if (target) {
       target.classList.add('active');
-      if (id === 'profile') this.updateProfileUI();
     } else {
       console.error(`[UIManager] Attempted to show non-existent panel: ${id}`);
     }
-  }
-
-  private updateProfileUI() {
-    document.getElementById('profile-rank')!.innerText = this.profile.level.toString();
-    document.getElementById('profile-xp')!.innerText = this.profile.xp.toString();
-
-    const tree = document.getElementById('ability-tree')!;
-    tree.innerHTML = '';
-
-    Object.entries(ABILITIES).forEach(([id, ability]) => {
-      const level = this.profile.upgrades[id] || 0;
-      const cost = ability.costPerLevel(level);
-      const canAfford = this.profile.xp >= cost && level < ability.maxLevel;
-
-      const item = document.createElement('div');
-      item.className = 'upgrade-item';
-      item.innerHTML = `
-        <div>
-          <strong>${ability.name}</strong> (Lvl ${level}/${ability.maxLevel})<br>
-          <small>${ability.description}</small>
-        </div>
-        <button class="btn" style="width: auto; margin: 0; padding: 5px 10px;" 
-          ${!canAfford ? 'disabled' : ''} 
-          id="upgrade-${id}">
-          ${level >= ability.maxLevel ? 'MAX' : cost + ' XP'}
-        </button>
-      `;
-      tree.appendChild(item);
-
-      document.getElementById(`upgrade-${id}`)!.onclick = () => {
-        const success = ProfileManager.upgradeAbility(id, this.profile);
-        if (success) {
-          ProfileManager.saveProfile(this.profile);
-          this.updateProfileUI();
-        }
-      };
-    });
-  }
-
-  private updateThemeSelector() {
-    const select = document.getElementById('themeSelect')!;
-    select.innerHTML = '';
-
-    this.profile.unlockedThemes.forEach((themeId: string) => {
-      const theme = THEMES[themeId];
-      if (theme) {
-        const opt = document.createElement('option');
-        opt.value = themeId;
-        opt.innerText = theme.name;
-        if (themeId === this.profile.settings.theme) opt.selected = true;
-        select.appendChild(opt);
-      }
-    });
-  }
-
-  public applyTheme(themeId: string) {
-    const theme = THEMES[themeId] || THEMES.deepSpace;
-    this.profile.settings.theme = themeId;
-    ProfileManager.saveProfile(this.profile);
-    
-    document.body.style.background = theme.background;
-    document.querySelectorAll('.glass-panel').forEach(el => {
-      (el as HTMLElement).style.background = theme.glassBg;
-      (el as HTMLElement).style.borderColor = theme.glassBorder;
-    });
-
-    window.dispatchEvent(new CustomEvent('themeChanged', { detail: themeId }));
   }
 
   public updateCombo(combo: number) {
@@ -307,10 +258,13 @@ export class UIManager {
   }
 
   public showTutorial(text: string, duration: number = 4000) {
-    this.tutorialText.innerText = text;
-    this.tutorialBox.classList.add('visible');
+    const toast = document.getElementById('toast-notification');
+    if (!toast) return;
+    
+    toast.innerText = text;
+    toast.style.opacity = '1';
     setTimeout(() => {
-      this.tutorialBox.classList.remove('visible');
+      toast.style.opacity = '0';
     }, duration);
   }
 

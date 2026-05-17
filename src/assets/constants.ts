@@ -37,7 +37,8 @@ export interface UserProfile {
   settings: {
     volume: number;
     theme: string;
-    accessibility: boolean;
+    muteSfx: boolean;
+    disableVibration: boolean;
   };
 }
 

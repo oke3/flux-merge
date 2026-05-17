@@ -22,7 +22,8 @@ export class ProfileManager {
       settings: {
         volume: 0.7,
         theme: 'deepSpace',
-        accessibility: false,
+        muteSfx: false,
+        disableVibration: false,
       },
     };
   }

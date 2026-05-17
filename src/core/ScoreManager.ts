@@ -70,6 +70,12 @@ export class ScoreManager {
     this.ui.updateCombo(this.comboCount);
   }
 
+  public resetHighScore(): void {
+    this.highScore = 0;
+    this.ui.updateHighScore(0);
+    localStorage.setItem('flux-merge-highscore', '0');
+  }
+
   public reset(): void {
     this.score = 0;
     this.comboCount = 1;

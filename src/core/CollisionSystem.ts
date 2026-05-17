@@ -13,7 +13,7 @@ export interface CollisionHandler {
   playMergeSound(level: number): void;
   spawnBurst(x: number, y: number, color: string, count: number): void;
   addRipple(ripple: Ripple): void;
-  triggerShake(intensity: number): void;
+  triggerShake(intensity: number, duration?: number): void;
   spawnNode(): void;
   transitionToWin(): void;
   checkAchievements(): void;
@@ -42,7 +42,6 @@ export class CollisionSystem {
             if (a.type === NodeType.VOID || b.type === NodeType.VOID) continue;
             this.mergeGameNodes(nodes, i, j, handler);
             frameMerges++;
-            break; 
           }
         }
       }
@@ -99,7 +98,6 @@ export class CollisionSystem {
     a.pendingRemoval = true;
     b.pendingRemoval = true;
     handler.addNode(mergedGameNode);
-    handler.spawnNode();
     handler.checkAchievements();
   }
 

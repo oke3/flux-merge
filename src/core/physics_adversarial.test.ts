@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Physics } from './Physics';
 import { GameNode } from './GameNode';
-import { GAME_CONFIG } from '../assets/constants';
 
 describe('Attack B: The Singularity (Physics)', () => {
   it('should not produce NaN or Infinity when nodes are at near-zero distance', () => {

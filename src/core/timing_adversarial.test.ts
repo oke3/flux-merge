@@ -52,7 +52,6 @@ describe('Attack C: The Temporal Fracture (Timing)', () => {
   it('should handle massive delta-time spikes without exploding', () => {
     // 1. Spawn initial nodes
     game.spawnGameNode();
-    const initialNodes = [...game.nodes];
 
     // 2. Simulate a massive jump in time (e.g., 5 seconds)
     currentTime += 5000;
@@ -63,7 +62,7 @@ describe('Attack C: The Temporal Fracture (Timing)', () => {
     }).not.toThrow();
 
     // Check if nodes are still within reasonable bounds
-    game.nodes.forEach(node => {
+    game.nodes.forEach((node: any) => {
       expect(node.x).toBeGreaterThanOrEqual(0);
       expect(node.x).toBeLessThanOrEqual(800);
       expect(node.y).toBeGreaterThanOrEqual(0);
