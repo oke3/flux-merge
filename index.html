@@ -192,7 +192,7 @@
         opacity: 1;
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-CVHhrSy5.js"></script>
+    <script type="module" crossorigin src="./assets/index-Cy5KfZ-B.js"></script>
   </head>
   <body>
     <div id="main-wrapper">
@@ -216,42 +216,52 @@
           <div id="panel-main" class="glass-panel panel active">
             <h1 class="intro-title">FLUX MERGE</h1>
             <p class="intro-subtitle">Harness the Energy. Reach the Singularity.</p>
+            <div style="font-size: 12px; color: rgba(255, 255, 255, 0.4); margin-bottom: 20px; letter-spacing: 1px; text-transform: uppercase;">
+              v1.0.1 • Pre-alpha
+            </div>
             <button class="btn" id="startBtn">Begin Awakening</button>
-            <button class="btn btn-secondary" id="btn-profile">Cosmic Profile</button>
             <button class="btn btn-secondary" id="btn-settings">Settings</button>
-          </div>
-
-          <!-- Profile / Ability Tree -->
-          <div id="panel-profile" class="glass-panel panel">
-            <h2>Cosmic Profile</h2>
-            <div id="profile-stats" style="margin-bottom: 20px;">
-              <p>Rank: <span id="profile-rank">1</span></p>
-              <p>Experience: <span id="profile-xp">0</span></p>
-            </div>
-            <div id="ability-tree" style="width: 100%; margin-bottom: 20px;">
-              <!-- Upgrades injected here -->
-            </div>
-            <button class="btn btn-secondary" id="btn-back-main">Back</button>
           </div>
 
           <!-- Settings -->
           <div id="panel-settings" class="glass-panel panel">
-            <h2>Settings Vault</h2>
-            <div class="tutorial-toggle">
-              <span>Cosmic Guide (Tutorial)</span>
-              <input type="checkbox" id="toggle-tutorial" checked>
-            </div>
+            <h2>Game Settings</h2>
             <div class="settings-grid">
-              <button class="btn btn-secondary" id="btn-load">Load Profile</button>
-              <button class="btn btn-secondary" id="btn-new-game">New Game</button>
-              <button class="btn btn-secondary" id="btn-delete">Delete Save</button>
-              <button class="btn btn-danger" id="btn-reset">Nuclear Reset</button>
-            </div>
-            <div style="width: 100%; margin-bottom: 20px;">
-              <label>Cosmic Theme:</label>
-              <select id="themeSelect" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px;"></select>
+              <button class="btn btn-secondary" id="btn-reset-score">Reset Score</button>
+              <button class="btn btn-secondary" id="btn-tutorial">Tutorial</button>
+              <button class="btn btn-secondary" id="toggle-mute-sfx">SFX: ON</button>
+              <button class="btn btn-secondary" id="toggle-vibrate">Haptics: ON</button>
             </div>
             <button class="btn btn-secondary" id="btn-back-main">Back</button>
+          </div>
+
+          <!-- Tutorial Page -->
+          <div id="panel-tutorial" class="glass-panel panel">
+            <h2>Cosmic Guide</h2>
+            <div id="tutorial-container" style="text-align: left; margin: 20px 0; line-height: 1.6; min-height: 200px;">
+              <div class="tutorial-slide active" data-slide="0">
+                <h3>Basics of Flux Merge</h3>
+                <p>The goal of the game is to merge nodes of the same level to create higher-level nodes. To merge, simply drag one node on top of another of the same color.</p>
+                <p>The ultimate objective is to reach the Singularity, which is a Level 5 node. Achieving this wins the game.</p>
+              </div>
+              <div class="tutorial-slide" data-slide="1" style="display: none;">
+                <h3>Understanding Nodes</h3>
+                <p><strong>Standard Nodes:</strong> The core elements of the game. Merge two Level 1s to get a Level 2, and so on.</p>
+                <p><strong>Pulsars (Cyan):</strong> These nodes emit a pulse that pushes all other nearby nodes away, making it harder to merge them.</p>
+                <p><strong>Prisms (Magenta):</strong> Unstable elements. Instead of merging normally, they split into two lower-level nodes upon collision.</p>
+                <p><strong>Voids (Black):</strong> Dangerous singularities that consume any standard node that gets too close, removing it from the board.</p>
+              </div>
+              <div class="tutorial-slide" data-slide="2" style="display: none;">
+                <h3>Progression and Strategy</h3>
+                <p>Every successful merge grants you Experience Points (XP). You can use this XP in your Cosmic Profile to upgrade abilities like Magnetic Pull, which helps attract nodes together.</p>
+                <p>Strategic Tip: Manage your space carefully. Since new nodes spawn over time, keeping your board clear of clusters is key to avoiding a Game Over.</p>
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center; width: 100%;">
+              <button class="btn btn-secondary" id="btn-tutorial-prev" style="width: auto; max-width: 120px;">Previous</button>
+              <button class="btn btn-secondary" id="btn-tutorial-next" style="width: auto; max-width: 120px;">Next</button>
+            </div>
+            <button class="btn btn-secondary" id="btn-back-main" style="margin-top: 20px;">Back to Main Menu</button>
           </div>
 
           <!-- Modals -->
@@ -284,5 +294,6 @@
         </div>
       </div>
     </div>
+    <div id="toast-notification" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; transition: opacity 0.3s ease; z-index: 1000; pointer-events: none; border: 1px solid rgba(255,255,255,0.2);"></div>
   </body>
 </html>
