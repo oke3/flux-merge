@@ -44,7 +44,8 @@ export class EntityManager {
   }
 
   public findNodeAt(x: number, y: number): GameNode | null {
-    return this.nodes.find(n => Physics.getDistanceSq(x, y, n.x, n.y) < (n.radius * 1.5) * (n.radius * 1.5)) || null;
+    // Increased hit area for better mobile accessibility (from 1.5x to 2.5x radius)
+    return this.nodes.find(n => Physics.getDistanceSq(x, y, n.x, n.y) < (n.radius * 2.5) * (n.radius * 2.5)) || null;
   }
 
   public calculateSpawnInterval(profile: UserProfile, score: number, hasNebula: boolean): number {

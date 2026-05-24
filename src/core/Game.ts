@@ -192,6 +192,7 @@ export class Game implements CollisionHandler, GameStateListener {
       onDragStart: (node) => this.interaction.handleDragStart(node),
       onDragMove: (node, x, y) => this.interaction.handleDragMove(node, x, y),
       onDragEnd: (node) => this.interaction.handleDragEnd(node),
+      logEvent: (msg) => this.logEvent(`[Input] ${msg}`),
     });
 
     window.addEventListener('themeChanged', (e: Event) => {

@@ -21,6 +21,7 @@ export interface InputConfig {
   onDragStart: (node: GameNode) => void;
   onDragMove: (node: GameNode, x: number, y: number) => void;
   onDragEnd: (node: GameNode) => void;
+  logEvent?: (message: string) => void;
 }
 
 export class InputManager {
@@ -37,6 +38,7 @@ export class InputManager {
 
   private canvas: HTMLCanvasElement;
   private cellSize: number;
+  private config: InputConfig;
   private findNode: (x: number, y: number) => GameNode | null;
   private onDragStart: (node: GameNode) => void;
   private onDragMove: (node: GameNode, x: number, y: number) => void;
@@ -51,20 +53,21 @@ export class InputManager {
     this.onDragStart = config.onDragStart;
     this.onDragMove = config.onDragMove;
     this.onDragEnd = config.onDragEnd;
+    this.config = config;
     
     this.initListeners();
   }
 
   private initListeners() {
-    // Mouse Events
-    this.canvas.addEventListener('mousedown', this.handleMouseDown);
-    this.canvas.addEventListener('mousemove', this.handleMouseMove);
-    window.addEventListener('mouseup', this.handleMouseUp);
+    // Unified Pointer Events (Handles Mouse, Touch, and Stylus)
+    this.canvas.addEventListener('pointerdown', this.handlePointerDown);
+    this.canvas.addEventListener('pointermove', this.handlePointerMove);
+    window.addEventListener('pointerup', this.handlePointerUp);
+  }
 
-    // Touch Events
-    this.canvas.addEventListener('touchstart', this.handleTouchStart, { passive: false });
-    this.canvas.addEventListener('touchmove', this.handleTouchMove, { passive: false });
-    this.canvas.addEventListener('touchend', this.handleTouchEnd);
+  private log(message: string) {
+    console.log(`[InputManager] ${message}`);
+    this.config.logEvent?.(message);
   }
 
   private getCanvasCoordinates(clientX: number, clientY: number) {
@@ -90,20 +93,27 @@ export class InputManager {
     this.state.snappedY = this.state.snappedGridY * this.cellSize + this.cellSize / 2;
   }
 
-  private handleMouseDown = (e: MouseEvent) => {
+  private handlePointerDown = (e: PointerEvent) => {
+    this.log(`PointerDown: ${e.clientX},${e.clientY}`);
     const { x, y } = this.getCanvasCoordinates(e.clientX, e.clientY);
     this.updateInputState(x, y);
     
     const node = this.findNode(x, y);
     if (node) {
+      this.log(`Node found: ${node.id}`);
       this.draggedNode = node;
       this.state.isDragging = true;
       this.state.draggedNodeId = node.id;
       this.onDragStart(node);
+      
+      // Capture the pointer to continue receiving events even if the finger leaves the canvas
+      this.canvas.setPointerCapture(e.pointerId);
+    } else {
+      this.log(`No node at ${x.toFixed(1)},${y.toFixed(1)}`);
     }
   };
 
-  private handleMouseMove = (e: MouseEvent) => {
+  private handlePointerMove = (e: PointerEvent) => {
     const { x, y } = this.getCanvasCoordinates(e.clientX, e.clientY);
     this.updateInputState(x, y);
 
@@ -112,7 +122,7 @@ export class InputManager {
     }
   };
 
-  private handleMouseUp = () => {
+  private handlePointerUp = (_e: PointerEvent) => {
     if (this.draggedNode) {
       this.onDragEnd(this.draggedNode);
       this.draggedNode = null;
@@ -121,43 +131,10 @@ export class InputManager {
     }
   };
 
-  private handleTouchStart = (e: TouchEvent) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const { x, y } = this.getCanvasCoordinates(touch.clientX, touch.clientY);
-    this.updateInputState(x, y);
-    
-    const node = this.findNode(x, y);
-    if (node) {
-      this.draggedNode = node;
-      this.state.isDragging = true;
-      this.state.draggedNodeId = node.id;
-      this.onDragStart(node);
-    }
-  };
-
-  private handleTouchMove = (e: TouchEvent) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const { x, y } = this.getCanvasCoordinates(touch.clientX, touch.clientY);
-    this.updateInputState(x, y);
-
-    if (this.draggedNode) {
-      this.onDragMove(this.draggedNode, x, y);
-    }
-  };
-
-  private handleTouchEnd = () => {
-    if (this.draggedNode) {
-      this.onDragEnd(this.draggedNode);
-      this.draggedNode = null;
-      this.state.isDragging = false;
-      this.state.draggedNodeId = null;
-    }
-  };
 
   public getState(): InputState {
     return { ...this.state };
   }
 }
+
 
