@@ -132,13 +132,14 @@ export class WorldSystem {
             if (voidGameNode === other || other.type === NodeType.VOID) continue;
 
             if (Physics.getDistanceSq(voidGameNode.x, voidGameNode.y, other.x, other.y) < Math.pow(GAME_CONFIG.VOID_CONSUMPTION_RADIUS, 2)) {
-              handler.addRipple(new Ripple(other.x, other.y, '#000000', GAME_CONFIG.PULSE_RADIUS * 0.5));
-              handler.spawnBurst(other.x, other.y, '#000000', 15);
-              handler.playMergeSound(1);
-              if ('vibrate' in navigator) {
-                navigator.vibrate([30, 50, 30]);
-              }
-              other.pendingRemoval = true;
+               handler.addRipple(new Ripple(other.x, other.y, '#000000', GAME_CONFIG.PULSE_RADIUS * 0.5));
+               handler.spawnBurst(other.x, other.y, '#000000', 15);
+               handler.playMergeSound(1);
+               if ('triggerHaptic' in handler) {
+                 (handler as any).triggerHaptic([30, 50, 30]);
+               }
+               other.pendingRemoval = true;
+
             }
           }
         }
@@ -171,8 +172,8 @@ export class WorldSystem {
     handler.triggerShake(20);
     handler.playMergeSound(5); // Approximation for Singularity sound if not in handler
     
-    if ('vibrate' in navigator && profile.settings.disableVibration === false) {
-      navigator.vibrate([100, 50, 100]);
+    if ('triggerHaptic' in handler) {
+      (handler as any).triggerHaptic([100, 50, 100]);
     }
 
     nodes.forEach(node => {

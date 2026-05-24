@@ -32,7 +32,12 @@ export class AudioManager {
     this.engine.resume();
   }
 
+  public setMute(mute: boolean) {
+    this.profile.settings.muteSfx = mute;
+  }
+
   /**
+
    * Starts the background ambient loop.
    */
   public startAmbience() {

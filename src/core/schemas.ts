@@ -46,6 +46,7 @@ export const UserProfileSchema = z.object({
     theme: z.string(),
     muteSfx: z.boolean(),
     disableVibration: z.boolean(),
+    powerSaver: z.boolean(),
   }),
 });
 

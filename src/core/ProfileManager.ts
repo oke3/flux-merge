@@ -24,9 +24,12 @@ export class ProfileManager {
       settings: {
         volume: 0.7,
         theme: 'deepSpace',
-        muteSfx: false,
-        disableVibration: false,
-      },
+       muteSfx: false,
+       disableVibration: false,
+       powerSaver: false,
+     },
+
+
     };
   }
 

@@ -46,6 +46,7 @@ export interface UserProfile {
     theme: string;
     muteSfx: boolean;
     disableVibration: boolean;
+    powerSaver: boolean;
   };
 }
 

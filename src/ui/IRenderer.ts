@@ -19,4 +19,6 @@ export interface IRenderer {
   setFever(active: boolean): void;
   updateGhostNode(x: number, y: number, level: number, type?: any, currentX?: number, currentY?: number): void;
   hideGhostNode(): void;
+  setPowerSaver(enabled: boolean): void;
 }
+

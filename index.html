@@ -18,6 +18,11 @@
         height: 100vh;
         width: 100vw;
         touch-action: none;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        box-sizing: border-box;
       }
 
       /* --- Holographic HUD Aesthetics --- */
@@ -76,24 +81,6 @@
       .bracket-br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
       
       #game-container {
-        position: relative;
-        width: 100%;
-        aspect-ratio: 1 / 1;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-      
-      /* Ensure brackets are tied to the game container for consistent scaling */
-      .hud-bracket {
-        /* We'll move these in the HTML to be inside #game-container if needed, 
-           but currently they are in #main-wrapper. 
-           Let's adjust their position to be safe. */
-      }
-      .bracket-tl { top: 10px; left: 10px; border-right: none; border-bottom: none; }
-      .bracket-tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
-      .bracket-bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
-      .bracket-br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
 
       /* Event Log */
       #event-log {
@@ -103,9 +90,9 @@
         transform: translateX(-50%);
         width: 80%;
         max-width: 300px;
-        height: 80px;
+        height: 60px;
         font-family: 'Courier New', monospace;
-        font-size: 11px;
+        font-size: 10px;
         color: var(--hologram-color);
         text-align: center;
         overflow: hidden;
@@ -115,7 +102,13 @@
         flex-direction: column-reverse;
         mask-image: linear-gradient(to top, black, transparent);
         z-index: 5;
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(4px);
+        border-radius: 8px;
+        border: 1px solid rgba(0, 255, 204, 0.1);
+        padding: 5px;
       }
+
 
       .log-entry {
         margin-bottom: 4px;
@@ -184,6 +177,24 @@
         0% { transform: scale(1); }
         50% { transform: scale(1.2); color: #fff; }
         100% { transform: scale(1); }
+      }
+
+      @media (max-width: 400px) {
+        .overlay {
+          padding: 0 5px;
+        }
+        .glass-panel.score-display {
+          padding: 8px 12px;
+          font-size: 14px;
+        }
+        .hud-bracket {
+          width: 15px;
+          height: 15px;
+        }
+        .bracket-tl { top: 5px; left: 5px; }
+        .bracket-tr { top: 5px; right: 5px; }
+        .bracket-bl { bottom: 5px; left: 5px; }
+        .bracket-br { bottom: 5px; right: 5px; }
       }
 
       .hud-pulse {
@@ -384,8 +395,10 @@
              <div class="settings-grid">
                 <button class="btn btn-secondary btn-magnetic" id="btn-reset-score">Reset Score</button>
                 <button class="btn btn-secondary btn-magnetic" id="btn-tutorial">Tutorial</button>
-                <button class="btn btn-secondary btn-magnetic" id="toggle-mute-sfx">SFX: ON</button>
-                <button class="btn btn-secondary btn-magnetic" id="toggle-vibrate">Haptics: ON</button>
+                 <button class="btn btn-secondary btn-magnetic" id="toggle-mute-sfx">SFX: ON</button>
+                 <button class="btn btn-secondary btn-magnetic" id="toggle-vibrate">Haptics: ON</button>
+                 <button class="btn btn-secondary btn-magnetic" id="toggle-powersaver">Power Saver: OFF</button>
+
 
              </div>
              <div style="margin: 20px 0; width: 100%; text-align: center;">

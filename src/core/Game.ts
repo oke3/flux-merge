@@ -78,6 +78,21 @@ export class Game implements CollisionHandler, GameStateListener {
 
   public playMergeSound(level: number) {
     this.audioManager.playMerge(level, this.scoreManager.getCombo());
+    
+    // Haptic Feedback
+    if (!this.profile.settings.disableVibration && 'vibrate' in navigator) {
+      if (level >= 3) {
+        navigator.vibrate(30); // Medium pulse for high-level merges
+      } else {
+        navigator.vibrate(10); // Light pulse for standard merges
+      }
+    }
+  }
+
+  public triggerHaptic(pattern: number | number[]) {
+    if (!this.profile.settings.disableVibration && 'vibrate' in navigator) {
+      navigator.vibrate(pattern);
+    }
   }
 
   public spawnBurst(x: number, y: number, color: string, count: number) {
@@ -169,6 +184,7 @@ export class Game implements CollisionHandler, GameStateListener {
     this.interaction = new InteractionManager(this.renderer);
     this.entityManager.initGrid();
     this.ui.setGame(this);
+    this.renderer.setPowerSaver(this.profile.settings.powerSaver);
     console.log('[Game] Core systems initialized');
     
     this.inputManager = new InputManager('gameCanvas', {
@@ -197,6 +213,10 @@ export class Game implements CollisionHandler, GameStateListener {
       this.currentTheme = savedTheme;
       window.dispatchEvent(new CustomEvent('themeChanged', { detail: savedTheme }));
     }
+
+    window.addEventListener('orientationchange', () => this.handleOrientationChange());
+    this.handleOrientationChange();
+
     console.log('[Game] Constructor complete');
     
     // Set initial UI state
@@ -209,6 +229,13 @@ export class Game implements CollisionHandler, GameStateListener {
     if (newState === GameState.GAME_OVER || newState === GameState.WIN) {
       const results = this.stateManager.calculateResults(this.entityManager, this.scoreManager, this.startTime);
       this.ui.showResults(results, newState === GameState.WIN);
+      
+      // Game End Haptics
+      if (newState === GameState.WIN) {
+        this.triggerHaptic([100, 100, 100, 100]); // Success fanfare
+      } else {
+        this.triggerHaptic(200); // Long sad pulse
+      }
     }
     
     this.ui.handleStateChange(newState);
@@ -287,6 +314,32 @@ export class Game implements CollisionHandler, GameStateListener {
 
   public returnToMenu() {
     this.transitionTo(GameState.MENU);
+  }
+
+  public toggleMuteSfx() {
+    this.profile.settings.muteSfx = !this.profile.settings.muteSfx;
+    ProfileManager.saveProfile(this.profile);
+    this.ui.showNotification(`SFX ${this.profile.settings.muteSfx ? 'Muted' : 'Enabled'}`);
+    this.audioManager.setMute(this.profile.settings.muteSfx);
+  }
+
+  public toggleVibration() {
+    this.profile.settings.disableVibration = !this.profile.settings.disableVibration;
+    ProfileManager.saveProfile(this.profile);
+    this.ui.showNotification(`Haptics ${this.profile.settings.disableVibration ? 'Disabled' : 'Enabled'}`);
+  }
+
+  public togglePowerSaver() {
+    this.profile.settings.powerSaver = !this.profile.settings.powerSaver;
+    ProfileManager.saveProfile(this.profile);
+    this.renderer.setPowerSaver(this.profile.settings.powerSaver);
+    this.ui.showNotification(`Power Saver ${this.profile.settings.powerSaver ? 'ON' : 'OFF'}`);
+  }
+
+  private handleOrientationChange() {
+    if (window.innerHeight < window.innerWidth) {
+      this.ui.showNotification('Please rotate your device to Portrait mode for the best experience! 📱');
+    }
   }
 
   public stop() {

@@ -19,6 +19,7 @@ export class ThreeRenderer implements IRenderer {
   private particlesSystem: THREE.Points | null = null;
   private particlesGeometry: THREE.BufferGeometry | null = null;
   private ghostMesh: THREE.Mesh | null = null;
+  private powerSaver: boolean = false;
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId)!.parentElement!;
@@ -174,9 +175,10 @@ export class ThreeRenderer implements IRenderer {
 
   public drawParticles(particles: IParticle[]) {
     if (particles.length === 0) return;
-
-    const MAX_PARTICLES = 2000;
+    
+    const MAX_PARTICLES = this.powerSaver ? 500 : 2000;
     if (!this.particlesSystem) {
+
       this.particlesGeometry = new THREE.BufferGeometry();
       
       const positions = new Float32Array(MAX_PARTICLES * 3);
@@ -259,6 +261,10 @@ export class ThreeRenderer implements IRenderer {
     if (this.ghostMesh) {
       this.ghostMesh.visible = false;
     }
+  }
+
+  public setPowerSaver(enabled: boolean) {
+    this.powerSaver = enabled;
   }
 
   public render() {

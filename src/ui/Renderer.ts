@@ -7,6 +7,7 @@ export class Renderer implements IRenderer {
   private canvas: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
   private visualCache: Map<string, HTMLCanvasElement> = new Map();
+  private powerSaver: boolean = false;
 
 
   constructor(canvasId: string) {
@@ -41,6 +42,10 @@ export class Renderer implements IRenderer {
     this.ctx.scale(dpr, dpr);
   }
 
+  public setPowerSaver(enabled: boolean) {
+    this.powerSaver = enabled;
+  }
+
   public clear() {
     if (!this.ctx || !this.canvas) return;
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -48,9 +53,14 @@ export class Renderer implements IRenderer {
 
   public drawBackground(offset: number) {
     if (!this.ctx || !this.canvas) return;
+    
+    const starCounts = this.powerSaver 
+      ? { small: 20, medium: 10, large: 5 } 
+      : { small: 50, medium: 30, large: 15 };
+
     // Layer 1: Distant Small Stars
     this.ctx.fillStyle = 'white';
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < starCounts.small; i++) {
       const x = (Math.sin(i) * 10000 + offset * 0.2) % this.canvas.width;
       const y = (Math.cos(i) * 10000) % this.canvas.height;
       this.ctx.globalAlpha = 0.3;
@@ -58,10 +68,10 @@ export class Renderer implements IRenderer {
       this.ctx.arc(x < 0 ? x + this.canvas.width : x, y, 1, 0, Math.PI * 2);
       this.ctx.fill();
     }
-
+  
     // Layer 2: Mid-distance Medium Stars
     this.ctx.fillStyle = '#B0C4DE';
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < starCounts.medium; i++) {
       const x = (Math.sin(i * 2) * 10000 + offset * 0.5) % this.canvas.width;
       const y = (Math.cos(i * 2) * 10000) % this.canvas.height;
       this.ctx.globalAlpha = 0.6;
@@ -69,10 +79,10 @@ export class Renderer implements IRenderer {
       this.ctx.arc(x < 0 ? x + this.canvas.width : x, y, 1.5, 0, Math.PI * 2);
       this.ctx.fill();
     }
-
+  
     // Layer 3: Close Large Stars
     this.ctx.fillStyle = '#FFFFFF';
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < starCounts.large; i++) {
       const x = (Math.sin(i * 3) * 10000 + offset * 1.2) % this.canvas.width;
       const y = (Math.cos(i * 3) * 10000) % this.canvas.height;
       this.ctx.globalAlpha = 0.9;
@@ -82,6 +92,7 @@ export class Renderer implements IRenderer {
     }
     this.ctx.globalAlpha = 1.0;
   }
+
 
   public applyShake(intensity: number) {
     if (!this.ctx || intensity <= 0) return;
@@ -391,7 +402,11 @@ export class Renderer implements IRenderer {
     const ctx = this.ctx;
     if (!ctx) return;
     ctx.save();
-    particles.forEach(p => {
+    
+    const maxParticles = this.powerSaver ? 50 : particles.length;
+    const particlesToDraw = particles.slice(0, maxParticles);
+
+    particlesToDraw.forEach(p => {
       const opacity = p.life / p.maxLife;
       ctx.globalAlpha = opacity;
       ctx.fillStyle = p.color;

@@ -57,6 +57,12 @@ export class UIManager {
       this.updateHighScore(0);
     });
     document.getElementById('btn-tutorial')?.addEventListener('click', () => this.showPanel('panel-tutorial'));
+    
+    document.getElementById('toggle-mute-sfx')?.addEventListener('click', () => this.game?.toggleMuteSfx());
+    document.getElementById('toggle-vibrate')?.addEventListener('click', () => this.game?.toggleVibration());
+    document.getElementById('toggle-powersaver')?.addEventListener('click', () => this.game?.togglePowerSaver());
+
+    // Pause Menu
 
     // Pause Menu
     document.getElementById('btn-pause')?.addEventListener('click', () => this.game?.pause());
@@ -227,6 +233,7 @@ export class UIManager {
     const magneticButtons = document.querySelectorAll('.btn-magnetic');
     
     magneticButtons.forEach(btn => {
+      // Mouse Hover Effect
       btn.addEventListener('mousemove', (e) => {
         const mouseEvent = e as MouseEvent;
         const rect = btn.getBoundingClientRect();
@@ -236,7 +243,6 @@ export class UIManager {
         const deltaX = mouseEvent.clientX - centerX;
         const deltaY = mouseEvent.clientY - centerY;
         
-        // Limit the pull effect
         const pullStrength = 0.2;
         const moveX = deltaX * pullStrength;
         const moveY = deltaY * pullStrength;
@@ -247,6 +253,15 @@ export class UIManager {
       btn.addEventListener('mouseleave', () => {
         (btn as HTMLElement).style.transform = '';
       });
+
+      // Touch Press Effect
+      btn.addEventListener('touchstart', () => {
+        (btn as HTMLElement).style.transform = 'scale(0.95)';
+      }, { passive: true });
+      
+      btn.addEventListener('touchend', () => {
+        (btn as HTMLElement).style.transform = '';
+      }, { passive: true });
     });
   }
 }
