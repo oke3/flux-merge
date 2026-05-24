@@ -61,7 +61,6 @@
         to { background-position: 0 100%; }
       }
 
-      /* Corner Brackets */
       .hud-bracket {
         position: absolute;
         width: 20px;
@@ -75,24 +74,47 @@
       .bracket-tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
       .bracket-bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
       .bracket-br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+      
+      #game-container {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      
+      /* Ensure brackets are tied to the game container for consistent scaling */
+      .hud-bracket {
+        /* We'll move these in the HTML to be inside #game-container if needed, 
+           but currently they are in #main-wrapper. 
+           Let's adjust their position to be safe. */
+      }
+      .bracket-tl { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+      .bracket-tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+      .bracket-bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+      .bracket-br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
 
       /* Event Log */
       #event-log {
         position: absolute;
         bottom: 20px;
-        right: -120px;
-        width: 100px;
-        height: 150px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80%;
+        max-width: 300px;
+        height: 80px;
         font-family: 'Courier New', monospace;
-        font-size: 10px;
+        font-size: 11px;
         color: var(--hologram-color);
-        text-align: right;
+        text-align: center;
         overflow: hidden;
         pointer-events: none;
         opacity: 0.6;
         display: flex;
         flex-direction: column-reverse;
         mask-image: linear-gradient(to top, black, transparent);
+        z-index: 5;
       }
 
       .log-entry {
@@ -129,8 +151,8 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0 10px;
-        margin-bottom: 20px;
+        padding: 0 15px;
+        margin-bottom: 10px;
         box-sizing: border-box;
         z-index: 10;
       }
@@ -211,7 +233,7 @@
 
       .btn {
         margin: 10px 0;
-        padding: 12px 32px;
+        padding: 14px 32px;
         background: rgba(0, 255, 204, 0.1);
         color: var(--ui-accent);
         border: 1px solid var(--hologram-color);
@@ -224,6 +246,10 @@
         max-width: 250px;
         text-transform: uppercase;
         letter-spacing: 1px;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .btn:hover {
@@ -317,30 +343,30 @@
     <script type="module" crossorigin src="./assets/index-BwX7atwq.js"></script>
   </head>
   <body>
-    <div id="main-wrapper">
-      <div class="scanline"></div>
-      <div class="hud-bracket bracket-tl"></div>
-      <div class="hud-bracket bracket-tr"></div>
-      <div class="hud-bracket bracket-bl"></div>
-      <div class="hud-bracket bracket-br"></div>
-      <div id="event-log"></div>
-
-      <div class="overlay">
-        <div class="glass-panel score-display">
-          Score: <span id="scoreValue">0</span>
+      <div id="main-wrapper">
+        <div class="scanline"></div>
+        <div id="event-log"></div>
+    
+        <div class="overlay">
+          <div class="glass-panel score-display">
+            Score: <span id="scoreValue">0</span>
+          </div>
+          <div id="pause-controls" style="display: none;">
+            <button id="btn-pause" class="btn btn-secondary btn-magnetic" style="width: auto; padding: 8px 20px; margin: 0; font-size: 20px; border-radius: 20px; backdrop-filter: blur(10px);">||</button>
+          </div>
+          <div class="glass-panel score-display" style="margin-left: 10px;">
+            Best: <span id="highScoreValue">0</span>
+          </div>
         </div>
-        <div id="pause-controls" style="display: none;">
-          <button id="btn-pause" class="btn btn-secondary" style="width: auto; padding: 5px 15px; margin: 0; font-size: 24px;">||</button>
-        </div>
-        <div class="glass-panel score-display" style="margin-left: 10px;">
-          Best: <span id="highScoreValue">0</span>
-        </div>
-      </div>
-
-      <div id="game-container">
-        <canvas id="gameCanvas" width="600" height="600"></canvas>
-
-        <div id="ui-overlay">
+    
+        <div id="game-container">
+          <div class="hud-bracket bracket-tl"></div>
+          <div class="hud-bracket bracket-tr"></div>
+          <div class="hud-bracket bracket-bl"></div>
+          <div class="hud-bracket bracket-br"></div>
+          <canvas id="gameCanvas" width="600" height="600"></canvas>
+    
+          <div id="ui-overlay">
           <!-- Main Menu -->
           <div id="panel-main" class="glass-panel panel active">
             <h1 class="intro-title">FLUX MERGE</h1>
