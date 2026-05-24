@@ -3,6 +3,9 @@
  * Proprietary and confidential. Reverse engineering prohibited.
  */
 import { UIManager } from '../ui/UIManager';
+import { ProfileManager, type UserProfile } from './ProfileManager';
+import { GameNode } from './GameNode';
+import { NodeType } from '../assets/constants';
 
 /**
  * ScoreManager handles the game scoring, combo system, and high score persistence.
@@ -13,6 +16,7 @@ export class ScoreManager {
   private comboCount: number = 1;
   private comboTimer: number = 0;
   private readonly COMBO_TIMEOUT = 1500;
+  public isFever: boolean = false;
   private ui: UIManager;
 
   constructor(ui: UIManager) {
@@ -33,6 +37,11 @@ export class ScoreManager {
     return this.comboCount;
   }
 
+  public getMultiplier(): number {
+    const baseMultiplier = 1 + Math.floor(this.comboCount / 3);
+    return this.isFever ? baseMultiplier * 2 : baseMultiplier;
+  }
+
   public getComboTimer(): number {
     return this.comboTimer;
   }
@@ -47,8 +56,11 @@ export class ScoreManager {
     }
   }
 
-  public addScore(points: number): void {
-    this.score += points;
+  public addScore(points: number, profile: UserProfile, nodes: GameNode[]): void {
+    const hasNebula = nodes.some(n => n.type === NodeType.NEBULA);
+    const multiplier = this.getMultiplier();
+    const finalPoints = points * multiplier;
+    this.score += finalPoints;
     this.ui.updateScore(this.score);
 
     if (this.score > this.highScore) {
@@ -56,6 +68,16 @@ export class ScoreManager {
       this.ui.updateHighScore(this.highScore);
       localStorage.setItem('flux-merge-highscore', this.highScore.toString());
     }
+
+    // Process XP Gain
+    const xpGain = ProfileManager.calculateXPGain(finalPoints, hasNebula);
+    const { levelUp, newLevel } = ProfileManager.addXP(profile, xpGain);
+    
+    if (levelUp) {
+      this.ui.showNotification(`LEVEL UP: ${newLevel}`);
+    }
+    
+    ProfileManager.saveProfile(profile);
   }
 
   public incrementCombo(): void {

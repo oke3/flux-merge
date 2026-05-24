@@ -30,8 +30,9 @@ export class AudioEngine {
     osc.stop(this.ctx.currentTime + duration);
   }
 
-  public playMerge(level: number) {
-    const freq = 200 + (level * 100);
+  public playMerge(level: number, comboMultiplier: number = 1) {
+    const baseFreq = 200 + (level * 100);
+    const freq = baseFreq * (1 + (comboMultiplier - 1) * 0.05);
     const duration = 0.1 + (level * 0.05);
     this.playTone(freq, 'sine', duration, 0.3);
   }
@@ -41,12 +42,13 @@ export class AudioEngine {
     setTimeout(() => this.playTone(880, 'sawtooth', 0.1, 0.1), 100);
   }
 
-  public playSingularity() {
-    this.playTone(60, 'square', 0.8, 0.2);
-    this.playTone(120, 'sine', 1.2, 0.3);
-  }
-
   private ambienceOsc: OscillatorNode | null = null;
+
+  public resume() {
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
 
   public playBackgroundAmbience() {
     this.init();

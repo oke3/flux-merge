@@ -1,7 +1,10 @@
 /* 
  * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
+ * Proprietary and confidential. Reverse engineering prohibited.
  */
-export class Particle {
+import type { IParticle } from './types';
+
+export class Particle implements IParticle {
   public x: number;
   public y: number;
   public vx: number;
@@ -11,6 +14,7 @@ export class Particle {
   public color: string;
   public size: number;
   public isDead: boolean = false;
+
 
   constructor(x: number, y: number, color: string) {
     this.x = x;

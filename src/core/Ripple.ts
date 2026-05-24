@@ -1,4 +1,6 @@
-export class Ripple {
+import type { IRipple } from './types';
+
+export class Ripple implements IRipple {
   public x: number;
   public y: number;
   public radius: number = 0;

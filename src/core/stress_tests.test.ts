@@ -12,27 +12,41 @@ vi.mock('../assets/constants', async () => {
   return {
     ...actual,
     GAME_CONFIG: {
+      ...(actual.GAME_CONFIG as any),
       CANVAS_SIZE: 800,
       GRID_SIZE: 10,
       NODE_RADIUS: 10,
       PULSE_RADIUS: 50,
       VOID_CONSUMPTION_RADIUS: 30,
-      MAGNETIC_PULL_STRENGTH: 0.5,
     }
   };
 });
+
 vi.mock('../core/AudioManager');
-vi.mock('../core/ScoreManager');
+vi.mock('../core/ScoreManager', () => ({
+  ScoreManager: class {
+    getScore = vi.fn(() => 0);
+    getCombo = vi.fn(() => 1);
+    resetHighScore = vi.fn();
+    addScore = vi.fn();
+    incrementCombo = vi.fn();
+  }
+}));
 vi.mock('../core/ParticleSystem');
 vi.mock('../core/Ripple');
 vi.mock('../core/StorageManager');
 vi.mock('../core/BadgeManager');
 vi.mock('../core/ProfileManager', () => ({
   ProfileManager: {
-    loadProfile: () => ({ settings: { theme: 'deepSpace', disableVibration: true } }),
+    loadProfile: () => ({ settings: { theme: 'deepSpace', disableVibration: true }, galaxy: 1 }),
     getAbilityValue: () => 0.05,
+    ascendGalaxy: vi.fn(),
+    calculateXPGain: vi.fn(() => 10),
+    addXP: vi.fn(() => ({ levelUp: false, newLevel: 1 })),
+    saveProfile: vi.fn(),
   }
 }));
+
 
 describe('Extreme Stress Tests', () => {
   let game: any;

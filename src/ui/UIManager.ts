@@ -1,274 +1,253 @@
 /* 
  * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
+ * Proprietary and confidential. Reverse engineering prohibited.
  */
 import { GameState } from '../assets/constants';
-import { ProfileManager } from '../core/ProfileManager';
-import { Game } from '../core/Game';
+import type { Game } from '../core/Game';
 
 export class UIManager {
+  private game: Game | null = null;
+  private panels: Map<GameState, HTMLElement> = new Map();
   private scoreElement: HTMLElement;
   private highScoreElement: HTMLElement;
-  private comboElement!: HTMLElement;
-  private game!: Game;
-
-  // Panels
-  private panels: Record<string, HTMLElement> = {};
+  private toastElement: HTMLElement;
+  private eventLogElement: HTMLElement;
 
   constructor() {
     this.scoreElement = document.getElementById('scoreValue')!;
     this.highScoreElement = document.getElementById('highScoreValue')!;
-    
-    this.setupComboDisplay();
-    this.setupPanels();
-    this.setupEventListeners();
-    this.updateSettingsButtons();
+    this.toastElement = document.getElementById('toast-notification')!;
+    this.eventLogElement = document.getElementById('event-log')!;
+    this.initPanels();
+    this.initListeners();
+  }
+
+  private initPanels() {
+    this.panels.set(GameState.MENU, document.getElementById('panel-main')!);
+    this.panels.set(GameState.SETTINGS, document.getElementById('panel-settings')!);
+    this.panels.set(GameState.UPGRADES, document.getElementById('panel-upgrades')!);
+    this.panels.set(GameState.PAUSED, document.getElementById('panel-pause')!);
+    this.panels.set(GameState.GAME_OVER, document.getElementById('gameOverModal')!);
+    this.panels.set(GameState.WIN, document.getElementById('winModal')!);
+  }
+
+  private initListeners() {
+    console.log('[UIManager] Initializing listeners...');
+    this.initMagneticButtons();
+    // Main Menu
+    const startBtn = document.getElementById('startBtn');
+    if (startBtn) {
+      console.log('[UIManager] Found startBtn, attaching listener');
+      startBtn.addEventListener('click', () => {
+        console.log('[UIManager] Start button clicked');
+        this.game?.restart();
+      });
+    } else {
+      console.error('[UIManager] startBtn NOT FOUND in DOM');
+    }
+    document.getElementById('btn-settings')?.addEventListener('click', () => this.game?.transitionTo(GameState.SETTINGS));
+    document.getElementById('btn-upgrades')?.addEventListener('click', () => this.game?.transitionTo(GameState.UPGRADES));
+
+
+    // Settings
+    document.getElementById('btn-back-main')?.addEventListener('click', () => this.game?.transitionTo(GameState.MENU));
+    document.getElementById('btn-reset-score')?.addEventListener('click', () => {
+      localStorage.removeItem('flux-merge-high-score');
+      this.updateScore(0);
+      this.updateHighScore(0);
+    });
+    document.getElementById('btn-tutorial')?.addEventListener('click', () => this.showPanel('panel-tutorial'));
+
+    // Pause Menu
+    document.getElementById('btn-pause')?.addEventListener('click', () => this.game?.pause());
+    document.getElementById('btn-pause-resume')?.addEventListener('click', () => this.game?.resume());
+    document.getElementById('btn-pause-restart')?.addEventListener('click', () => this.game?.restart());
+    document.getElementById('btn-pause-settings')?.addEventListener('click', () => this.game?.transitionTo(GameState.SETTINGS));
+    document.getElementById('btn-pause-menu')?.addEventListener('click', () => this.game?.returnToMenu());
+
+    // Modals
+    document.getElementById('btn-retry')?.addEventListener('click', () => this.game?.restart());
+    document.getElementById('btn-menu-from-over')?.addEventListener('click', () => this.game?.returnToMenu());
+    document.getElementById('btn-retry-win')?.addEventListener('click', () => this.game?.restart());
+    document.getElementById('btn-menu-from-win')?.addEventListener('click', () => this.game?.returnToMenu());
   }
 
   public setGame(game: Game) {
     this.game = game;
   }
 
+  public updateState(state: GameState) {
+    // Hide all panels
+    this.panels.forEach(panel => {
+      panel.classList.remove('active');
+      panel.style.display = 'none';
+    });
+
+    // Toggle pause controls visibility (only show during active game)
+    const pauseControls = document.getElementById('pause-controls');
+    if (pauseControls) {
+      pauseControls.style.display = state === GameState.PLAYING ? 'block' : 'none';
+    }
+
+    // Show the panel corresponding to the current state
+    const activePanel = this.panels.get(state);
+    if (activePanel) {
+      activePanel.classList.add('active');
+      activePanel.style.display = 'flex';
+    }
+  }
+
   public handleStateChange(state: GameState) {
-    // 1. Reset all panels
-    this.hideAll();
-    
-    // 2. Update based on state
-    switch (state) {
-      case GameState.MENU:
-        this.showPanel('main');
-        this.togglePauseButton(false);
-        break;
-      case GameState.PLAYING:
-        this.togglePauseButton(true);
-        break;
-      case GameState.PAUSED:
-        this.showPanel('pause');
-        this.togglePauseButton(false);
-        break;
-      case GameState.GAME_OVER:
-        this.showPanel('gameOverModal');
-        this.togglePauseButton(false);
-        break;
-      case GameState.WIN:
-        this.showPanel('winModal');
-        this.togglePauseButton(false);
-        break;
+    this.updateState(state);
+  }
+
+  public showPanel(panelId: string) {
+    document.querySelectorAll('.panel').forEach(p => {
+      p.classList.remove('active');
+      (p as HTMLElement).style.display = 'none';
+    });
+
+    const panel = document.getElementById(panelId);
+    if (panel) {
+      panel.classList.add('active');
+      panel.style.display = 'flex';
     }
   }
 
-  private setupComboDisplay() {
-    // Create a wrapper with fixed height to reserve space and prevent layout shift
-    this.comboElement = document.createElement('div');
-    this.comboElement.className = 'glass-panel combo-display';
-    this.comboElement.style.cssText = 'font-size: 32px; font-weight: bold; color: #FFD700; display: none; transition: all 0.2s ease; z-index: 20; text-align: center;';
-
-    const comboWrapper = document.createElement('div');
-    comboWrapper.id = 'combo-wrapper';
-    comboWrapper.style.cssText = 'height: 60px; display: flex; justify-content: center; align-items: center; margin-bottom: 10px; width: 100%;';
-    comboWrapper.appendChild(this.comboElement);
+  public updateScore(score: number) {
+    this.scoreElement.textContent = score.toString();
     
+    // Trigger "pop" animation
+    this.scoreElement.classList.remove('score-pop');
+    void this.scoreElement.offsetWidth; // Force reflow
+    this.scoreElement.classList.add('score-pop');
+  }
+
+  public pulseHUD() {
     const wrapper = document.getElementById('main-wrapper');
-    const container = document.getElementById('game-container');
-    if (wrapper && container) {
-      wrapper.insertBefore(comboWrapper, container);
-    } else {
-      document.querySelector('.overlay')!.appendChild(this.comboElement);
+    if (wrapper) {
+      wrapper.classList.remove('hud-pulse');
+      void wrapper.offsetWidth; // Force reflow
+      wrapper.classList.add('hud-pulse');
     }
   }
 
-  private setupPanels() {
-    const panelIds = ['main', 'settings', 'tutorial', 'gameOverModal', 'winModal', 'pause'];
-    panelIds.forEach(id => {
-      const el = document.getElementById(`panel-${id}`) || document.getElementById(id);
-      if (el) {
-        this.panels[id] = el;
-      } else {
-        console.warn(`[UIManager] Panel #${id} not found in DOM`);
+  public updateHighScore(highScore: number) {
+    this.highScoreElement.textContent = highScore.toString();
+  }
+
+  public logEvent(message: string) {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    const timestamp = (performance.now() / 1000).toFixed(1);
+    entry.textContent = `[${timestamp}s] ${message}`;
+    this.eventLogElement.appendChild(entry);
+
+    // Keep only last 10 entries
+    while (this.eventLogElement.childNodes.length > 10) {
+      const firstChild = this.eventLogElement.firstChild;
+      if (firstChild) {
+        this.eventLogElement.removeChild(firstChild);
       }
-    });
-  }
-
-  private setupEventListeners() {
-    const safeSetClick = (id: string, handler: () => void) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.onclick = handler;
-      } else {
-        console.warn(`[UIManager] Element #${id} not found in DOM`);
-      }
-    };
-
-    // Navigation
-    safeSetClick('btn-settings', () => this.showPanel('settings'));
-    safeSetClick('btn-tutorial', () => {
-      this.showPanel('tutorial');
-      this.showTutorialSlide(0);
-    });
-    document.querySelectorAll('#btn-back-main').forEach(btn => {
-      (btn as HTMLElement).onclick = () => this.showPanel('main');
-    });
-
-    safeSetClick('btn-tutorial-prev', () => {
-      const current = this.getCurrentTutorialSlide();
-      this.showTutorialSlide(current - 1);
-    });
-    safeSetClick('btn-tutorial-next', () => {
-      const current = this.getCurrentTutorialSlide();
-      this.showTutorialSlide(current + 1);
-    });
-
-    // Modal Navigation
-    safeSetClick('btn-menu-from-over', () => this.game.returnToMenu());
-    safeSetClick('btn-menu-from-win', () => this.game.returnToMenu());
-    
-    safeSetClick('btn-retry', () => {
-      this.game.restart();
-    });
-    safeSetClick('btn-retry-win', () => {
-      this.game.restart();
-    });
-
-    // Settings Actions
-    safeSetClick('btn-reset-score', () => {
-      this.game.scoreManager.resetHighScore();
-      this.showToast('High Score Reset');
-    });
-
-    safeSetClick('toggle-mute-sfx', () => {
-      const profile = ProfileManager.loadProfile();
-      profile.settings.muteSfx = !profile.settings.muteSfx;
-      ProfileManager.saveProfile(profile);
-      if (this.game && this.game.audioManager) {
-        this.game.audioManager.updateProfile(profile);
-      }
-      this.updateSettingsButtons();
-      this.showToast('SFX ' + (profile.settings.muteSfx ? 'OFF' : 'ON'));
-    });
-    safeSetClick('toggle-vibrate', () => {
-      const profile = ProfileManager.loadProfile();
-      profile.settings.disableVibration = !profile.settings.disableVibration;
-      ProfileManager.saveProfile(profile);
-      this.updateSettingsButtons();
-      this.showToast('Haptics ' + (profile.settings.disableVibration ? 'OFF' : 'ON'));
-    });
-
-    // Pause Menu
-    safeSetClick('btn-pause', () => {
-      this.game.pause();
-    });
-
-    safeSetClick('btn-pause-resume', () => {
-      this.game.resume();
-    });
-
-    safeSetClick('btn-pause-restart', () => {
-      this.game.restart();
-    });
-
-    safeSetClick('btn-pause-settings', () => {
-      this.showPanel('settings');
-    });
-
-    safeSetClick('btn-pause-menu', () => {
-      this.game.returnToMenu();
-    });
-  }
-
-  private updateSettingsButtons() {
-    const profile = ProfileManager.loadProfile();
-    const sfxBtn = document.getElementById('toggle-mute-sfx');
-    if (sfxBtn) {
-      sfxBtn.innerText = `SFX: ${profile.settings.muteSfx ? 'OFF' : 'ON'}`;
-    }
-    const vibBtn = document.getElementById('toggle-vibrate');
-    if (vibBtn) {
-      vibBtn.innerText = `Haptics: ${profile.settings.disableVibration ? 'OFF' : 'ON'}`;
-    }
-  }
-
-  private getCurrentTutorialSlide(): number {
-    const activeSlide = document.querySelector('.tutorial-slide.active');
-    return activeSlide ? parseInt(activeSlide.getAttribute('data-slide') || '0') : 0;
-  }
-
-  private showTutorialSlide(index: number) {
-    const slides = document.querySelectorAll('.tutorial-slide');
-    if (slides.length === 0) return;
-
-    slides.forEach((slide, i) => {
-      (slide as HTMLElement).style.display = i === index ? 'block' : 'none';
-      slide.classList.toggle('active', i === index);
-    });
-
-    const prevBtn = document.getElementById('btn-tutorial-prev');
-    const nextBtn = document.getElementById('btn-tutorial-next');
-    if (prevBtn) prevBtn.style.visibility = index === 0 ? 'hidden' : 'visible';
-    if (nextBtn) nextBtn.style.visibility = index === slides.length - 1 ? 'hidden' : 'visible';
-  }
-
-  public showPanel(id: string) {
-    Object.values(this.panels).forEach(p => {
-      if (p) p.classList.remove('active');
-    });
-    const target = this.panels[id];
-    if (target) {
-      target.classList.add('active');
-    } else {
-      console.error(`[UIManager] Attempted to show non-existent panel: ${id}`);
     }
   }
 
   public updateCombo(combo: number) {
-    if (combo <= 1) {
-      this.comboElement.style.display = 'none';
-      return;
-    }
-    this.comboElement.style.display = 'block';
-    this.comboElement.innerText = `COMBO x${combo}`;
-    
-    // Pulse effect
-    this.comboElement.style.transform = 'scale(1.2)';
+    // Combo element not yet in HTML, but method provided to prevent crashes
+    // Potential future: add a combo multiplier display to the UI
+    console.log(`[UIManager] Combo updated: ${combo}`);
+  }
+
+  public showGuide(message: string, duration: number = 3000) {
+    this.showNotification(message, duration);
+  }
+
+  public showNotification(message: string, duration: number = 3000) {
+    this.toastElement.textContent = message;
+    this.toastElement.style.opacity = '1';
+
     setTimeout(() => {
-      this.comboElement.style.transform = 'scale(1)';
-    }, 100);
-  }
-
-  public updateScore(score: number) {
-    this.scoreElement.innerText = score.toString();
-  }
-
-  public updateHighScore(highScore: number) {
-    this.highScoreElement.innerText = highScore.toString();
-  }
-
-  public showGameOver() { this.showPanel('gameOverModal'); }
-  public showWin() { this.showPanel('winModal'); }
-  public hideAll() {
-    Object.values(this.panels).forEach(p => {
-      if (p) p.classList.remove('active');
-    });
-  }
-  public hideIntro() { this.showPanel('main'); } // Not used, managed by showPanel
-
-  public togglePauseButton(visible: boolean) {
-    const controls = document.getElementById('pause-controls');
-    if (controls) {
-      controls.style.display = visible ? 'block' : 'none';
-    }
-  }
-
-  public showTutorial(text: string, duration: number = 4000) {
-    const toast = document.getElementById('toast-notification');
-    if (!toast) return;
-    
-    toast.innerText = text;
-    toast.style.opacity = '1';
-    setTimeout(() => {
-      toast.style.opacity = '0';
+      this.toastElement.style.opacity = '0';
     }, duration);
   }
 
-  private showToast(text: string) {
-    this.showTutorial(text, 2000);
+  public showResults(_results: any, isWin: boolean) {
+    const modal = isWin ? document.getElementById('winModal') : document.getElementById('gameOverModal');
+    if (modal) {
+      modal.classList.add('active');
+      modal.style.display = 'flex';
+    }
+  }
+
+  public renderUpgrades(upgrades: any[], onUpgrade: (abilityId: string) => void) {
+    const container = document.getElementById('panel-upgrades')!;
+    
+    // Keep the header, clear the rest
+    container.innerHTML = `
+      <h2>Cosmic Upgrades</h2>
+      <button class="btn btn-secondary btn-magnetic" id="btn-upgrades-back" style="width: auto; padding: 5px 15px; margin-bottom: 20px; font-size: 12px;">
+        ← Back to Menu
+      </button>
+    `;
+    
+    const list = document.createElement('div');
+    list.className = 'upgrade-list';
+    
+    upgrades.forEach(upg => {
+      const item = document.createElement('div');
+      item.className = 'upgrade-item';
+      item.innerHTML = `
+        <div>
+          <strong>${upg.name}</strong><br/>
+          <small>${upg.description}</small>
+        </div>
+        <button class="btn btn-secondary btn-magnetic" style="width: auto; padding: 5px 10px;">
+          Upgrade (${upg.cost} XP)
+        </button>
+      `;
+      
+      const btn = item.querySelector('button');
+      btn?.addEventListener('click', () => onUpgrade(upg.id));
+      
+      list.appendChild(item);
+    });
+    
+    container.appendChild(list);
+    
+    // Add listener to the back button
+    document.getElementById('btn-upgrades-back')?.addEventListener('click', () => {
+      this.game?.transitionTo(GameState.MENU);
+    });
+    
+    // Re-init magnetic effects for dynamically created buttons
+    this.initMagneticButtons();
+  }
+
+  private initMagneticButtons() {
+    const magneticButtons = document.querySelectorAll('.btn-magnetic');
+    
+    magneticButtons.forEach(btn => {
+      btn.addEventListener('mousemove', (e) => {
+        const mouseEvent = e as MouseEvent;
+        const rect = btn.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        const deltaX = mouseEvent.clientX - centerX;
+        const deltaY = mouseEvent.clientY - centerY;
+        
+        // Limit the pull effect
+        const pullStrength = 0.2;
+        const moveX = deltaX * pullStrength;
+        const moveY = deltaY * pullStrength;
+        
+        (btn as HTMLElement).style.transform = `scale(1.05) translate(${moveX}px, ${moveY}px)`;
+      });
+      
+      btn.addEventListener('mouseleave', () => {
+        (btn as HTMLElement).style.transform = '';
+      });
+    });
   }
 }
+

@@ -11,43 +11,47 @@ import { EntityManager } from './EntityManager';
 import { CollisionSystem, type CollisionHandler } from './CollisionSystem';
 import { GameStateManager, type GameStateListener } from './GameStateManager';
 import { WorldSystem } from './WorldSystem';
- import type { IRenderer } from '../ui/IRenderer';
- import { Renderer } from '../ui/Renderer';
- import { ScoreManager } from './ScoreManager';
- import { AudioManager } from './AudioManager';
- import { Input } from '../ui/Input';
- import { Physics } from './Physics';
- import { Ripple } from './Ripple';
- import { UIManager } from '../ui/UIManager';
- import { ParticleSystem } from './ParticleSystem';
- import { StorageManager, type GameSession } from './StorageManager';
- import { BadgeManager } from './BadgeManager';
- import { ProfileManager, type UserProfile } from './ProfileManager';
- import { GAME_CONFIG, GameState } from '../assets/constants';
+import { EffectsManager } from './EffectsManager';
+import type { IRenderer } from '../ui/IRenderer';
+import { Renderer } from '../ui/Renderer';
+import { ScoreManager } from './ScoreManager';
+import { AudioManager } from './AudioManager';
+import { InputManager } from './InputManager';
+import { Ripple } from './Ripple';
+import { UIManager } from '../ui/UIManager';
+import { ParticleSystem } from './ParticleSystem';
+import { StorageManager } from './StorageManager';
+import { BadgeManager } from './BadgeManager';
+import { ProfileManager, type UserProfile } from './ProfileManager';
+import { ComboManager } from './ComboManager';
+import { InteractionManager } from './InteractionManager';
+import { GAME_CONFIG, GameState, THEMES, ABILITIES } from '../assets/constants';
+
 
 export class Game implements CollisionHandler, GameStateListener {
   private entityManager: EntityManager;
   private collisionSystem: CollisionSystem;
-  private stateManager: GameStateManager;
-  private worldSystem: WorldSystem;
-  private ripples: Ripple[] = [];
+  public stateManager: GameStateManager;
+  public worldSystem: WorldSystem;
+  public effects: EffectsManager;
   private particles: ParticleSystem;
   private renderer: IRenderer;
-  private ui: UIManager;
+  public ui: UIManager;
   public audioManager: AudioManager;
   public scoreManager: ScoreManager;
-  private profile: UserProfile;
+  public comboManager: ComboManager;
+  private interaction: InteractionManager;
+  public inputManager: InputManager;
+  public profile: UserProfile;
   private currentTheme: string = 'deepSpace';
   private isWin: boolean = false;
   private isPlaying: boolean = false;
   private animationFrameId: number | null = null;
   private lastFrameTime: number | null = null;
+  private physicsAccumulator: number = 0;
+  private readonly FIXED_DELTA = 1000 / 60; 
   private pendingNodes: GameNode[] = [];
-  private lastSpawnTime: number = 0;
   private startTime: number = 0;
-  private readonly BASE_SPAWN_INTERVAL = 4000;
-  private readonly MIN_SPAWN_INTERVAL = 1200;
-  private readonly MAX_DIFFICULTY_SCORE = 2000;
 
   public get nodes(): GameNode[] {
     return this.entityManager.allNodes;
@@ -60,21 +64,20 @@ export class Game implements CollisionHandler, GameStateListener {
 
   // CollisionHandler Implementation
   public addScore(points: number) {
-    this.scoreManager.addScore(points);
+    this.scoreManager.addScore(points, this.profile, this.nodes);
   }
 
   public incrementCombo() {
-    this.scoreManager.incrementCombo();
+    this.comboManager.incrementCombo();
   }
 
   public triggerFrenzy(duration: number) {
-    this.isFrenzy = true;
-    this.frenzyTimer = duration;
+    this.comboManager.triggerFrenzy(duration);
     this.audioManager.triggerFrenzyAudio();
   }
 
   public playMergeSound(level: number) {
-    this.audioManager.playMerge(level);
+    this.audioManager.playMerge(level, this.scoreManager.getCombo());
   }
 
   public spawnBurst(x: number, y: number, color: string, count: number) {
@@ -82,20 +85,30 @@ export class Game implements CollisionHandler, GameStateListener {
   }
 
   public addRipple(ripple: Ripple) {
-    this.ripples.push(ripple);
+    this.effects.addRipple(ripple);
   }
 
   public triggerShake(intensity: number, duration?: number) {
-    this.worldSystem.triggerShake(intensity, duration);
+    this.effects.triggerShake(intensity, duration);
   }
 
   public spawnNode() {
     this.spawnGameNode();
   }
 
+  public spawnGameNode() {
+    this.entityManager.spawnNode(this.profile, this.currentTheme);
+  }
+
   public transitionToWin() {
     this.transitionTo(GameState.WIN);
   }
+
+  public triggerGravityFlux() {
+    this.logEvent('SYSTEM: Gravity Flux Detected!');
+    this.worldSystem.triggerGravityFlux(this);
+  }
+
 
   public checkAchievements() {
     BadgeManager.checkAchievements(this);
@@ -109,21 +122,33 @@ export class Game implements CollisionHandler, GameStateListener {
     this.entityManager.addNode(node);
   }
 
+  public removeNodeMesh(node: GameNode) {
+    this.renderer.removeGameNodeMesh?.(node);
+  }
+
+  public logEvent(message: string) {
+    this.ui.logEvent(message);
+  }
+
+  public pulseHUD() {
+    this.ui.pulseHUD();
+  }
+
   public getCurrentTheme(): string {
     return this.currentTheme;
   }
 
-  // Combo & Frenzy State
-  private isFrenzy: boolean = false;
-  private frenzyTimer: number = 0;
-
-  // Achievement State
-  private supernovaTriggered: boolean = false;
-
-  private get currentSpawnInterval(): number {
-    const reduction = (this.scoreManager.getScore() / this.MAX_DIFFICULTY_SCORE) * (this.BASE_SPAWN_INTERVAL - this.MIN_SPAWN_INTERVAL);
-    return Math.max(this.MIN_SPAWN_INTERVAL, this.BASE_SPAWN_INTERVAL - reduction);
+  public updateGridMap() {
+    console.log('[Game] Calling updateGridMap');
+    this.entityManager.updateGridMap();
   }
+
+  public getGridMap() {
+    return this.entityManager.gridMap;
+  }
+
+  // Combo & Frenzy State
+  // Managed by ComboManager
 
   constructor() {
     console.log('[Game] Initializing...');
@@ -132,25 +157,38 @@ export class Game implements CollisionHandler, GameStateListener {
     this.entityManager = new EntityManager();
     this.collisionSystem = new CollisionSystem();
     this.stateManager = new GameStateManager(this);
+    this.stateManager.setProfile(this.profile);
     this.worldSystem = new WorldSystem();
+    this.effects = new EffectsManager();
     this.particles = new ParticleSystem();
     this.renderer = new Renderer('gameCanvas');
     this.ui = new UIManager();
     this.audioManager = new AudioManager();
     this.scoreManager = new ScoreManager(this.ui);
+    this.comboManager = new ComboManager(this.scoreManager, this.ui, this.audioManager);
+    this.interaction = new InteractionManager(this.renderer);
+    this.entityManager.initGrid();
     this.ui.setGame(this);
     console.log('[Game] Core systems initialized');
     
-    new Input('gameCanvas', {
+    this.inputManager = new InputManager('gameCanvas', {
       findNode: (x, y) => this.findGameNodeAt(x, y),
-      onDragStart: (node) => this.handleDragStart(node),
-      onDragMove: (node, x, y) => this.handleDragMove(node, x, y),
-      onDragEnd: (node) => this.handleDragEnd(node),
+      onDragStart: (node) => this.interaction.handleDragStart(node),
+      onDragMove: (node, x, y) => this.interaction.handleDragMove(node, x, y),
+      onDragEnd: (node) => this.interaction.handleDragEnd(node),
     });
 
     window.addEventListener('themeChanged', (e: Event) => {
       const customEvent = e as CustomEvent<string>;
-      this.currentTheme = customEvent.detail;
+      const themeId = customEvent.detail;
+      const theme = THEMES[themeId];
+      
+      if (theme && theme.requiredLevel && this.profile.level < theme.requiredLevel) {
+        this.ui.showNotification(`Requires Level ${theme.requiredLevel}!`);
+        return;
+      }
+      
+      this.currentTheme = themeId;
       this.updateGameNodeColors();
     });
 
@@ -167,9 +205,32 @@ export class Game implements CollisionHandler, GameStateListener {
 
   public onStateChange(newState: GameState) {
     console.log(`[Game] Handling state change to: ${newState}`);
+    
+    if (newState === GameState.GAME_OVER || newState === GameState.WIN) {
+      const results = this.stateManager.calculateResults(this.entityManager, this.scoreManager, this.startTime);
+      this.ui.showResults(results, newState === GameState.WIN);
+    }
+    
     this.ui.handleStateChange(newState);
+    console.log(`[Game] UI updated for state: ${newState}`);
 
+    if (newState === GameState.UPGRADES) {
+      const upgradeData = Object.values(ABILITIES).map(ability => {
+        const level = this.profile.upgrades[ability.id] || 0;
+        return {
+          id: ability.id,
+          name: ability.name,
+          description: ability.description,
+          cost: ability.costPerLevel(level),
+          level: level,
+          maxLevel: ability.maxLevel
+        };
+      });
+      this.ui.renderUpgrades(upgradeData, (id) => this.upgradeAbility(id));
+    }
+    
     switch (newState) {
+
       case GameState.PLAYING:
         this.isPlaying = true;
         this.audioManager.startAmbience();
@@ -184,6 +245,17 @@ export class Game implements CollisionHandler, GameStateListener {
         this.stop();
         break;
     }
+  }
+
+  public upgradeAbility(abilityId: string): boolean {
+    const success = ProfileManager.upgradeAbility(abilityId, this.profile);
+    if (success) {
+      ProfileManager.saveProfile(this.profile);
+      this.ui.showNotification(`Upgraded ${abilityId}!`);
+    } else {
+      this.ui.showNotification('Not enough XP or max level reached!');
+    }
+    return success;
   }
 
   public transitionTo(newState: GameState) {
@@ -203,28 +275,18 @@ export class Game implements CollisionHandler, GameStateListener {
   }
 
   public restart() {
+    console.log('[Game] restart() called');
     this.reset();
     this.initGame();
     this.startTime = performance.now();
+    this.audioManager.resume(); // Unlock audio context on user interaction
     this.transitionTo(GameState.PLAYING);
+    this.isPlaying = true; // Explicitly set isPlaying to true to start the loop
     this.gameLoop();
   }
 
   public returnToMenu() {
     this.transitionTo(GameState.MENU);
-  }
-
-  public start() {
-    const startBtn = document.getElementById('startBtn');
-    if (startBtn) {
-      startBtn.onclick = () => {
-        this.reset();
-        this.initGame();
-        this.startTime = performance.now();
-        this.transitionTo(GameState.PLAYING);
-        this.gameLoop();
-      };
-    }
   }
 
   public stop() {
@@ -236,33 +298,25 @@ export class Game implements CollisionHandler, GameStateListener {
     this.saveCurrentSession();
   }
 
+  // Removed calculateResults as it's now in GameStateManager
+
+
   // Removed togglePauseControls helper as it's now in UIManager
 
   public reset() {
     this.entityManager.reset();
-    this.ripples = [];
+    this.effects.reset();
     this.scoreManager.reset();
     this.isWin = false;
-    this.supernovaTriggered = false;
-    this.isFrenzy = false;
-    this.frenzyTimer = 0;
+    this.comboManager.reset();
+    this.worldSystem.supernovaTriggered = false;
   }
 
   private saveCurrentSession() {
-
-    const duration = Math.floor((performance.now() - this.startTime) / 1000);
-    const maxLevel = this.entityManager.allNodes.length > 0 ? Math.max(...this.entityManager.allNodes.map(n => n.level)) : 1;
-    
-    const session: GameSession = {
-      date: new Date().toISOString(),
-      score: this.scoreManager.getScore(),
-      maxLevel: maxLevel,
-      duration: duration
-    };
-    StorageManager.saveSession(session);
+    StorageManager.saveCurrentSession(this.entityManager, this.scoreManager, this.startTime);
   }
 
-  public hasTriggeredSupernova() { return this.supernovaTriggered; }
+  public hasTriggeredSupernova() { return this.worldSystem.supernovaTriggered; }
   public getScore() { return this.scoreManager.getScore(); }
   public getCombo() { return this.scoreManager.getCombo(); }
   public getIsWin() { return this.isWin; }
@@ -271,148 +325,148 @@ export class Game implements CollisionHandler, GameStateListener {
     return this.entityManager.findNodeAt(x, y);
   }
 
-  private handleDragStart(node: GameNode) {
-    node.isDragging = true;
-  }
-
-  private handleDragMove(node: GameNode, x: number, y: number) {
-    node.targetX = x;
-    node.targetY = y;
-  }
-
-  private handleDragEnd(node: GameNode) {
-    Physics.snapToGrid(node);
-    node.isDragging = false;
-  }
-
   private initGame() {
     for (let i = 0; i < 4; i++) {
-      this.spawnGameNode();
-    }
-  }
-
-  private spawnGameNode() {
-    const node = this.entityManager.spawnNode(this.profile, this.currentTheme);
-    if (!node) {
-      console.log('[Game] Grid Full - Game Over');
-      this.transitionTo(GameState.GAME_OVER);
+      this.entityManager.spawnNode(this.profile, this.currentTheme);
     }
   }
 
   private updateGameNodeColors() {
+
     this.entityManager.updateAllColors(this.currentTheme);
   }
 
-  private update(deltaTime: number) {
-    if (this.stateManager.getCurrentState() !== GameState.PLAYING) return;
+  public update(deltaTime: number = GAME_CONFIG.DEFAULT_DELTA_TIME) {
+    // console.log(`[Game] update called with delta: ${deltaTime}`);
+    // Sanitize deltaTime to prevent NaN/Infinity propagation
+    const sanitizedDelta = (Number.isFinite(deltaTime) && deltaTime > 0) 
+      ? deltaTime 
+      : GAME_CONFIG.DEFAULT_DELTA_TIME;
 
-    const now = performance.now();
-
-    this.worldSystem.update(this.entityManager.allNodes, this, deltaTime);
-
-    if (this.scoreManager.getComboTimer() > 0) {
-      this.scoreManager.updateComboTimer(deltaTime);
-      if (this.scoreManager.getComboTimer() <= 0) {
-        this.scoreManager.resetCombo();
-      }
-    }
-
-    if (this.isFrenzy) {
-      this.frenzyTimer -= deltaTime;
-      if (this.frenzyTimer <= 0) {
-        this.isFrenzy = false;
-        this.audioManager.stopFrenzyAudio();
-      }
-    }
-
-    if (now - this.lastSpawnTime > this.currentSpawnInterval) {
-      this.spawnGameNode();
-      this.lastSpawnTime = now;
-    }
-
-    const magneticStrength = ProfileManager.getAbilityValue('magneticPull', this.profile);
-    const strengthMultiplier = this.isFrenzy ? 2.5 : 1;
-
-    // Spatial Partitioning: Group nodes by grid cell
-    const gridMap: Record<string, GameNode[]> = {};
-    this.entityManager.allNodes.forEach(node => {
-      const key = `${node.gridX},${node.gridY}`;
-      if (!gridMap[key]) gridMap[key] = [];
-      gridMap[key].push(node);
-    });
-
-    for (const node of this.entityManager.allNodes) {
-      const nearbyGameNodes: GameNode[] = [];
-      // Check current cell and 8 neighbors
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          const key = `${node.gridX + dx},${node.gridY + dy}`;
-          if (gridMap[key]) {
-            nearbyGameNodes.push(...gridMap[key]);
-          }
-        }
-      }
-      Physics.applyMagneticPull(node, nearbyGameNodes, (strengthMultiplier * (magneticStrength / 0.05)) / 2);
-    }
-
-    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
-    this.entityManager.allNodes.forEach(node => node.update(cellSize, GAME_CONFIG.GRID_SIZE));
-    this.ripples.forEach(ripple => ripple.update());
-    this.ripples = this.ripples.filter(r => !r.isDead);
-    this.particles.update();
+    const state = this.stateManager.getCurrentState();
     
-    if (this.isFrenzy && Math.random() < 0.02) {
+    // Only run physics and logic if the game is actively playing
+    if (state !== GameState.PLAYING && state !== GameState.GAME_OVER) return;
+    
+    let effectiveDelta = sanitizedDelta;
+    if (state === GameState.GAME_OVER) {
+      effectiveDelta *= GAME_CONFIG.SLOW_MOTION_FACTOR; // Slow motion on game over
+    }
+    
+    // 1. Update positions and grid coordinates
+    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
+    this.entityManager.updateNodes(cellSize, GAME_CONFIG.GRID_SIZE, effectiveDelta);
+    
+    // 2. WorldSystem logic (uses updated gridMap and may change target positions)
+      this.worldSystem.update(
+        this.nodes, 
+        this.entityManager.gridMap, 
+        this, 
+        this.profile, 
+        effectiveDelta,
+        this.comboManager.getIsFrenzy()
+      );
+    
+    // 4. Collision detection (uses updated gridMap and current positions)
+    this.collisionSystem.checkAndResolveMerges(this.entityManager.allNodes, this.entityManager.gridMap, this);
+    
+    // 5. Update secondary systems
+    this.effects.update(effectiveDelta);
+    this.particles.update();
+    this.entityManager.cleanup();
+    
+    if (this.comboManager.getIsFrenzy() && Math.random() < GAME_CONFIG.FRENZY_AUDIO_CHANCE) {
       this.audioManager.triggerFrenzyAudio();
     }
+  }
 
-    this.collisionSystem.checkAndResolveMerges(this.entityManager.allNodes, this);
 
-    this.entityManager.cleanup();
-
-    // Final sweep: Remove marked nodes
-    // Removed redundant ui.updateScore call
-    }
+  public processSpawning() {
+    this.entityManager.processSpawning(this, performance.now());
+  }
 
   private gameLoop() {
     try {
+      // console.log('[Game] gameLoop tick');
       const now = performance.now();
-      const deltaTime = this.lastFrameTime ? now - this.lastFrameTime : 16.67;
+      const deltaTime = this.lastFrameTime ? now - this.lastFrameTime : this.FIXED_DELTA;
       this.lastFrameTime = now;
 
-      if (this.stateManager.getCurrentState() === GameState.PLAYING) {
-        this.update(deltaTime);
+      const state = this.stateManager.getCurrentState();
+      
+       // 1. LOGIC UPDATE
+       // Only run physics and game logic if the game is in an active state
+       if (this.isPlaying && (state === GameState.PLAYING || state === GameState.GAME_OVER)) {
+        this.physicsAccumulator += deltaTime;
+        
+         // Spiral of Death protection: cap the number of updates per frame
+         let updateCount = 0;
+  
+         while (this.physicsAccumulator >= this.FIXED_DELTA && updateCount < GAME_CONFIG.MAX_UPDATES_PER_FRAME) {
+           this.update(this.FIXED_DELTA);
+           this.physicsAccumulator -= this.FIXED_DELTA;
+           updateCount++;
+         }
+  
+         if (updateCount >= GAME_CONFIG.MAX_UPDATES_PER_FRAME) {
+           this.physicsAccumulator = 0;
+         }
+  
+        this.processSpawning();
       }
       
+      // 2. RENDERING
+      // Rendering always runs (for animations/menus) unless the canvas is hidden
       this.renderer.clear();
-      this.renderer.drawBackground(this.worldSystem.getBackgroundOffset());
+      this.renderer.drawBackground(this.effects.getBackgroundOffset());
       this.renderer.drawGrid();
       
-      // Apply screen shake translation
-      this.renderer.applyShake(this.worldSystem.getScreenShakeIntensity());
+      // Render Ghost Node for predictive snapping
+      const inputState = this.inputManager.getState();
+       if (inputState.isDragging && inputState.draggedNodeId) {
+         const draggedNode = this.entityManager.getNodeById(inputState.draggedNodeId);
+         if (draggedNode) {
+           this.renderer.updateGhostNode(
+             inputState.snappedX, 
+             inputState.snappedY, 
+             draggedNode.level, 
+             draggedNode.type,
+             draggedNode.x,
+             draggedNode.y
+           );
+         }
+       }
+
       
-      this.nodes.forEach((node, idx) => {
+      // Apply screen shake translation
+      this.renderer.applyShake(this.effects.getScreenShakeIntensity());
+      this.renderer.applyShake(this.effects.getScreenShakeIntensity());
+      
+       this.nodes.forEach((node, idx) => {
         if (!node) {
           console.error(`[Game] Null node detected at index ${idx}`);
           return;
         }
         this.renderer.drawGameNode(node);
       });
-      this.ripples.forEach(ripple => this.renderer.drawRipple(ripple));
+      this.renderer.drawRipples(this.effects.getRipples());
       this.renderer.drawParticles(this.particles.getParticles());
-      
+  
       this.renderer.resetShake();
       
-      this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
     } catch (e) {
       console.error('[Game] CRITICAL CRASH:', e);
       console.error('[Game] State at crash:', {
         nodeCount: this.nodes.length,
         pendingNodes: this.pendingNodes.length,
         theme: this.currentTheme,
-        isFrenzy: this.isFrenzy,
+        isFrenzy: this.comboManager.getIsFrenzy(),
         isPlaying: this.isPlaying,
         state: this.stateManager.getCurrentState()
       });
+    } finally {
+      this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
     }
   }
 }
+

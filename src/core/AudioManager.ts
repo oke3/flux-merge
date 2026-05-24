@@ -25,6 +25,14 @@ export class AudioManager {
   }
 
   /**
+   * Resumes the AudioContext. Essential for unlocking audio in browsers 
+   * after a user interaction.
+   */
+  public resume() {
+    this.engine.resume();
+  }
+
+  /**
    * Starts the background ambient loop.
    */
   public startAmbience() {
@@ -34,10 +42,11 @@ export class AudioManager {
   /**
    * Triggers the audio feedback for a node merge.
    * @param level The level of the newly merged node.
+   * @param comboCount The current combo count.
    */
-  public playMerge(level: number) {
+  public playMerge(level: number, comboCount: number = 1) {
     if (this.profile.settings.muteSfx) return;
-    this.engine.playMerge(level);
+    this.engine.playMerge(level, comboCount);
   }
 
   /**
@@ -54,13 +63,5 @@ export class AudioManager {
    */
   public stopFrenzyAudio() {
     this.engine.setAmbiencePitch(1);
-  }
-
-  /**
-   * Triggers the unique audio for a Singularity/Supernova event.
-   */
-  public playSingularity() {
-    if (this.profile.settings.muteSfx) return;
-    this.engine.playSingularity();
   }
 }

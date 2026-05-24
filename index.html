@@ -20,6 +20,13 @@
         touch-action: none;
       }
 
+      /* --- Holographic HUD Aesthetics --- */
+      :root {
+        --hologram-color: rgba(0, 255, 204, 0.6);
+        --hologram-glow: rgba(0, 255, 204, 0.2);
+        --ui-accent: #00FFCC;
+      }
+
       #main-wrapper {
         display: flex;
         flex-direction: column;
@@ -27,6 +34,75 @@
         justify-content: center;
         width: 100%;
         max-width: 600px;
+        position: relative;
+      }
+
+      /* Scanline Effect */
+      .scanline {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          to bottom,
+          transparent 50%,
+          rgba(0, 0, 0, 0.1) 50%
+        );
+        background-size: 100% 4px;
+        z-index: 1000;
+        pointer-events: none;
+        opacity: 0.3;
+        animation: scanlineMove 10s linear infinite;
+      }
+
+      @keyframes scanlineMove {
+        from { background-position: 0 0; }
+        to { background-position: 0 100%; }
+      }
+
+      /* Corner Brackets */
+      .hud-bracket {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border: 2px solid var(--hologram-color);
+        pointer-events: none;
+        z-index: 5;
+        filter: drop-shadow(0 0 5px var(--hologram-color));
+      }
+      .bracket-tl { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+      .bracket-tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+      .bracket-bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+      .bracket-br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+
+      /* Event Log */
+      #event-log {
+        position: absolute;
+        bottom: 20px;
+        right: -120px;
+        width: 100px;
+        height: 150px;
+        font-family: 'Courier New', monospace;
+        font-size: 10px;
+        color: var(--hologram-color);
+        text-align: right;
+        overflow: hidden;
+        pointer-events: none;
+        opacity: 0.6;
+        display: flex;
+        flex-direction: column-reverse;
+        mask-image: linear-gradient(to top, black, transparent);
+      }
+
+      .log-entry {
+        margin-bottom: 4px;
+        animation: logFadeIn 0.3s ease-out;
+      }
+
+      @keyframes logFadeIn {
+        from { opacity: 0; transform: translateX(10px); }
+        to { opacity: 1; transform: translateX(0); }
       }
 
       #game-container {
@@ -60,12 +136,13 @@
       }
 
       .glass-panel {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(0, 255, 204, 0.3);
         border-radius: 16px;
         padding: 12px 24px;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
+        transition: all 0.3s ease;
       }
 
       .score-display {
@@ -73,6 +150,28 @@
         font-weight: bold;
         text-transform: uppercase;
         letter-spacing: 2px;
+        color: var(--ui-accent);
+        text-shadow: 0 0 10px var(--hologram-glow);
+      }
+
+      .score-pop {
+        animation: scorePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      @keyframes scorePop {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.2); color: #fff; }
+        100% { transform: scale(1); }
+      }
+
+      .hud-pulse {
+        animation: hudPulse 0.4s ease-out;
+      }
+
+      @keyframes hudPulse {
+        0% { filter: brightness(1); }
+        50% { filter: brightness(1.5) contrast(1.2); }
+        100% { filter: brightness(1); }
       }
 
       #ui-overlay {
@@ -94,49 +193,72 @@
         flex-direction: column;
         align-items: center;
         text-align: center;
-        animation: fadeIn 0.3s ease-out;
+        animation: panelUnfold 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         max-width: 90%;
         width: 400px;
         padding: 30px;
+        border: 1px solid var(--hologram-color);
       }
 
       .panel.active {
         display: flex;
       }
 
-      @keyframes fadeIn {
-        from { opacity: 0; transform: scale(0.9); }
-        to { opacity: 1; transform: scale(1); }
+      @keyframes panelUnfold {
+        from { opacity: 0; clip-path: inset(50% 50% 50% 50%); transform: scale(0.8); }
+        to { opacity: 1; clip-path: inset(0% 0% 0% 0%); transform: scale(1); }
       }
 
       .btn {
         margin: 10px 0;
         padding: 12px 32px;
-        background: white;
-        color: #0f0f1a;
-        border: none;
+        background: rgba(0, 255, 204, 0.1);
+        color: var(--ui-accent);
+        border: 1px solid var(--hologram-color);
         border-radius: 8px;
         font-weight: bold;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         font-size: clamp(14px, 3vw, 16px);
         width: 100%;
         max-width: 250px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
       }
 
       .btn:hover {
-        transform: scale(1.05);
-        box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+        background: var(--hologram-color);
+        color: #0f0f1a;
+        transform: scale(1.05) translateY(-2px);
+        box-shadow: 0 0 20px var(--hologram-glow);
+      }
+
+      .btn-magnetic {
+        transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1), background 0.3s, color 0.3s, box-shadow 0.3s;
       }
 
       .btn-secondary {
+        background: rgba(255, 255, 255, 0.05);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .btn-secondary:hover {
         background: rgba(255, 255, 255, 0.2);
         color: white;
+        border-color: white;
       }
 
       .btn-danger {
+        background: rgba(255, 68, 68, 0.1);
+        color: #ff4444;
+        border: 1px solid #ff4444;
+      }
+
+      .btn-danger:hover {
         background: #ff4444;
         color: white;
+        box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
       }
 
       .intro-title {
@@ -145,15 +267,15 @@
         letter-spacing: 8px;
         text-transform: uppercase;
         margin: 0 0 10px 0;
-        background: linear-gradient(to bottom, #fff, #888);
+        background: linear-gradient(to bottom, #fff, var(--ui-accent));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
+        filter: drop-shadow(0 0 10px var(--hologram-glow));
       }
 
       .intro-subtitle {
         font-size: clamp(14px, 3vw, 18px);
-        color: rgba(255, 255, 255, 0.6);
+        color: rgba(0, 255, 204, 0.6);
         margin-bottom: 40px;
         letter-spacing: 2px;
       }
@@ -172,7 +294,7 @@
         align-items: center;
         width: 100%;
         padding: 10px;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
+        border-bottom: 1px solid rgba(0, 255, 204, 0.1);
         text-align: left;
       }
 
@@ -195,6 +317,13 @@
   </head>
   <body>
     <div id="main-wrapper">
+      <div class="scanline"></div>
+      <div class="hud-bracket bracket-tl"></div>
+      <div class="hud-bracket bracket-tr"></div>
+      <div class="hud-bracket bracket-bl"></div>
+      <div class="hud-bracket bracket-br"></div>
+      <div id="event-log"></div>
+
       <div class="overlay">
         <div class="glass-panel score-display">
           Score: <span id="scoreValue">0</span>
@@ -218,23 +347,37 @@
             <div style="font-size: 12px; color: rgba(255, 255, 255, 0.4); margin-bottom: 20px; letter-spacing: 1px; text-transform: uppercase;">
               v1.0.1 • Pre-alpha
             </div>
-            <button class="btn" id="startBtn">Begin Awakening</button>
-            <button class="btn btn-secondary" id="btn-settings">Settings</button>
+            <button class="btn btn-magnetic" id="startBtn">Begin Awakening</button>
+            <button class="btn btn-secondary btn-magnetic" id="btn-settings">Settings</button>
+            <button class="btn btn-secondary btn-magnetic" id="btn-upgrades">Cosmic Upgrades</button>
           </div>
 
-          <!-- Settings -->
-          <div id="panel-settings" class="glass-panel panel">
-            <h2>Game Settings</h2>
-            <div class="settings-grid">
-              <button class="btn btn-secondary" id="btn-reset-score">Reset Score</button>
-              <button class="btn btn-secondary" id="btn-tutorial">Tutorial</button>
-              <button class="btn btn-secondary" id="toggle-mute-sfx">SFX: ON</button>
-              <button class="btn btn-secondary" id="toggle-vibrate">Haptics: ON</button>
-            </div>
-            <button class="btn btn-secondary" id="btn-back-main">Back</button>
-          </div>
+           <!-- Settings -->
+           <div id="panel-settings" class="glass-panel panel">
+             <h2>Game Settings</h2>
+             <div class="settings-grid">
+                <button class="btn btn-secondary btn-magnetic" id="btn-reset-score">Reset Score</button>
+                <button class="btn btn-secondary btn-magnetic" id="btn-tutorial">Tutorial</button>
+                <button class="btn btn-secondary btn-magnetic" id="toggle-mute-sfx">SFX: ON</button>
+                <button class="btn btn-secondary btn-magnetic" id="toggle-vibrate">Haptics: ON</button>
 
-          <!-- Tutorial Page -->
+             </div>
+             <div style="margin: 20px 0; width: 100%; text-align: center;">
+               <label style="display: block; margin-bottom: 10px; font-size: 14px; color: rgba(255,255,255,0.6);">Cosmic Theme</label>
+               <select id="theme-selector" class="btn btn-secondary" style="cursor: pointer; width: 200px; text-align: center;">
+                 <!-- Themes will be populated dynamically -->
+               </select>
+             </div>
+              <button class="btn btn-secondary btn-magnetic" id="btn-back-main">Back</button>
+
+           </div>
+
+           <!-- Upgrades -->
+           <div id="panel-upgrades" class="glass-panel panel">
+             <!-- Content populated by UIManager.renderUpgrades() -->
+           </div>
+
+           <!-- Tutorial Page -->
           <div id="panel-tutorial" class="glass-panel panel">
             <h2>Cosmic Guide</h2>
             <div id="tutorial-container" style="text-align: left; margin: 20px 0; line-height: 1.6; min-height: 200px;">
@@ -256,35 +399,39 @@
                 <p>Strategic Tip: Manage your space carefully. Since new nodes spawn over time, keeping your board clear of clusters is key to avoiding a Game Over.</p>
               </div>
             </div>
-            <div style="display: flex; gap: 10px; justify-content: center; width: 100%;">
-              <button class="btn btn-secondary" id="btn-tutorial-prev" style="width: auto; max-width: 120px;">Previous</button>
-              <button class="btn btn-secondary" id="btn-tutorial-next" style="width: auto; max-width: 120px;">Next</button>
-            </div>
-            <button class="btn btn-secondary" id="btn-back-main" style="margin-top: 20px;">Back to Main Menu</button>
+             <div style="display: flex; gap: 10px; justify-content: center; width: 100%;">
+               <button class="btn btn-secondary btn-magnetic" id="btn-tutorial-prev" style="width: auto; max-width: 120px;">Previous</button>
+               <button class="btn btn-secondary btn-magnetic" id="btn-tutorial-next" style="width: auto; max-width: 120px;">Next</button>
+             </div>
+             <button class="btn btn-secondary btn-magnetic" id="btn-back-main" style="margin-top: 20px;">Back to Main Menu</button>
+
           </div>
 
           <!-- Modals -->
           <div id="gameOverModal" class="glass-panel panel">
             <h1>Grid Full!</h1>
             <p>The singularity was just out of reach.</p>
-            <button class="btn" id="btn-retry">Retry</button>
-            <button class="btn btn-secondary" id="btn-menu-from-over">Main Menu</button>
+             <button class="btn btn-magnetic" id="btn-retry">Retry</button>
+             <button class="btn btn-secondary btn-magnetic" id="btn-menu-from-over">Main Menu</button>
+
           </div>
 
           <div id="winModal" class="glass-panel panel">
             <h1>Singularity Achieved!</h1>
             <p>You have merged the cosmos.</p>
-            <button class="btn" id="btn-retry-win">Play Again</button>
-            <button class="btn btn-secondary" id="btn-menu-from-win">Main Menu</button>
+             <button class="btn btn-magnetic" id="btn-retry-win">Play Again</button>
+             <button class="btn btn-secondary btn-magnetic" id="btn-menu-from-win">Main Menu</button>
+
           </div>
 
           <!-- Pause Menu -->
           <div id="panel-pause" class="glass-panel panel">
             <h2>Paused</h2>
-            <button class="btn" id="btn-pause-resume">Resume</button>
-            <button class="btn btn-secondary" id="btn-pause-restart">Restart Game</button>
-            <button class="btn btn-secondary" id="btn-pause-settings">Settings</button>
-            <button class="btn btn-secondary" id="btn-pause-menu">Main Menu</button>
+             <button class="btn btn-magnetic" id="btn-pause-resume">Resume</button>
+             <button class="btn btn-secondary btn-magnetic" id="btn-pause-restart">Restart Game</button>
+             <button class="btn btn-secondary btn-magnetic" id="btn-pause-settings">Settings</button>
+             <button class="btn btn-secondary btn-magnetic" id="btn-pause-menu">Main Menu</button>
+
           </div>
 
         <!-- Tutorial Guide -->

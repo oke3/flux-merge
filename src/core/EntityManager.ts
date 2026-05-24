@@ -3,64 +3,129 @@
  * Proprietary and confidential. Reverse engineering prohibited.
  */
 import { GameNode } from './GameNode';
-import { GAME_CONFIG, NodeType, THEMES } from '../assets/constants';
+import { Game } from './Game';
+import { GAME_CONFIG, NodeType, THEMES, GameState } from '../assets/constants';
 import { ProfileManager } from './ProfileManager';
 import type { UserProfile } from './ProfileManager';
+import { Physics } from './Physics';
 
 export class EntityManager {
   private nodes: GameNode[] = [];
+  public gridMap: Record<string, GameNode[]> = {};
+  private availableCells: Set<string> = new Set();
+  private lastSpawnTime: number = -GAME_CONFIG.BASE_SPAWN_INTERVAL;
+  private spawnVariance: number = 0;
+
 
   public get allNodes(): GameNode[] {
     return this.nodes;
   }
 
+  public getNodeById(id: string): GameNode | null {
+    return this.nodes.find(n => n.id === id) || null;
+  }
+
+  public initGrid() {
+    this.availableCells.clear();
+    for (let x = 0; x < GAME_CONFIG.GRID_SIZE; x++) {
+      for (let y = 0; y < GAME_CONFIG.GRID_SIZE; y++) {
+        this.availableCells.add(`${x},${y}`);
+      }
+    }
+  }
+
   public addNode(node: GameNode) {
     this.nodes.push(node);
+    
+    const key = `${node.gridX},${node.gridY}`;
+    if (!this.gridMap[key]) this.gridMap[key] = [];
+    this.gridMap[key].push(node);
+    this.availableCells.delete(key);
   }
 
   public findNodeAt(x: number, y: number): GameNode | null {
-    return this.nodes.find(n => this.getDistance({x, y}, n) < n.radius * 1.5) || null;
+    return this.nodes.find(n => Physics.getDistanceSq(x, y, n.x, n.y) < (n.radius * 1.5) * (n.radius * 1.5)) || null;
   }
 
-  public spawnNode(profile: UserProfile, currentTheme: string): GameNode | null {
-    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
-    const occupied = new Set(this.nodes.map(n => `${n.gridX},${n.gridY}`));
+  public calculateSpawnInterval(profile: UserProfile, score: number, hasNebula: boolean): number {
+    const galaxyMultiplier = Math.max(0.5, 1 - (profile.galaxy - 1) * 0.1);
+    const base = GAME_CONFIG.BASE_SPAWN_INTERVAL * galaxyMultiplier;
+    const min = GAME_CONFIG.MIN_SPAWN_INTERVAL * galaxyMultiplier;
+    
+    const reduction = (score / GAME_CONFIG.MAX_DIFFICULTY_SCORE) * (base - min);
+    let interval = Math.max(min, base - reduction);
 
-    const availableCells = [];
-    for (let x = 0; x < GAME_CONFIG.GRID_SIZE; x++) {
-      for (let y = 0; y < GAME_CONFIG.GRID_SIZE; y++) {
-        if (!occupied.has(`${x},${y}`)) {
-          availableCells.push({ x, y });
-        }
-      }
+    if (hasNebula) {
+      interval *= 1.5;
     }
 
-    if (availableCells.length === 0) {
+    console.log(`[SpawnDebug] Base: ${GAME_CONFIG.BASE_SPAWN_INTERVAL}, CalcInterval: ${interval.toFixed(2)}, Nebula: ${hasNebula}`);
+    return interval;
+  }
+
+  public spawnJunkNode() {
+    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
+    const node = new GameNode(
+      Math.random() * GAME_CONFIG.CANVAS_SIZE,
+      Math.random() * GAME_CONFIG.CANVAS_SIZE,
+      0, 0, 1, NodeType.JUNK
+    );
+    node.gridX = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(node.x / cellSize)));
+    node.gridY = Math.max(0, Math.min(GAME_CONFIG.GRID_SIZE - 1, Math.floor(node.y / cellSize)));
+    
+    this.addNode(node);
+    
+    // Immediately update grid map to prevent overlapping spawns in the same frame
+    const key = `${node.gridX},${node.gridY}`;
+    if (!this.gridMap[key]) this.gridMap[key] = [];
+    this.gridMap[key].push(node);
+    
+    return node;
+  }
+
+  public spawnNode(profile: UserProfile, currentTheme: string, isFrenzy: boolean = false): GameNode | null {
+    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
+    
+    if (this.availableCells.size === 0) {
+      console.log(`[SpawnDebug] Grid Full! Available cells: 0`);
       return null;
     }
-
-    const cell = availableCells[Math.floor(Math.random() * availableCells.length)];
-    const x = cell.x * cellSize + cellSize / 2;
-    const y = cell.y * cellSize + cellSize / 2;
-
+    
+    // O(1) Selection: Pick a random cell from the set
+    const cellsArray = Array.from(this.availableCells);
+    const cellKey = cellsArray[Math.floor(Math.random() * cellsArray.length)];
+    const [cx, cy] = cellKey.split(',').map(Number);
+    
+    console.log(`[SpawnDebug] Available cells: ${this.availableCells.size}`);
+    
+    const x = cx * cellSize + cellSize / 2;
+    const y = cy * cellSize + cellSize / 2;
+    
     let type: NodeType = NodeType.STANDARD;
-    const specialChance = ProfileManager.getAbilityValue('specialChance', profile);
+    let specialChance = ProfileManager.getAbilityValue('specialChance', profile);
+    if (isFrenzy) specialChance *= 2;
+    
     if (Math.random() < specialChance) {
       const rand = Math.random();
-      if (rand < 0.1) {
+      if (rand < 0.05) {
+        type = NodeType.BLACK_HOLE;
+      } else if (rand < 0.1) {
+        type = NodeType.NEBULA;
+      } else if (rand < 0.2) {
         type = NodeType.SUPERNOVA;
-      } else if (rand < 0.3) {
+      } else if (rand < 0.4) {
         type = NodeType.PULSAR;
-      } else if (rand < 0.6) {
+      } else if (rand < 0.7) {
         type = NodeType.VOID;
       } else {
         type = NodeType.STAR;
       }
     }
-
-    const node = new GameNode(x, y, cell.x, cell.y, 1, type);
+    
+    const node = new GameNode(x, y, cx, cy, 1, type);
     this.updateNodeColor(node, currentTheme);
-    this.nodes.push(node);
+    this.addNode(node);
+    
     return node;
   }
 
@@ -71,6 +136,12 @@ export class EntityManager {
   public updateNodeColor(node: GameNode, currentTheme: string) {
     if (node.type === NodeType.VOID) {
       node.color = '#000000';
+    } else if (node.type === NodeType.BLACK_HOLE) {
+      node.color = '#110022';
+    } else if (node.type === NodeType.NEBULA) {
+      node.color = '#4400FF';
+    } else if (node.type === NodeType.JUNK) {
+      node.color = '#555555';
     } else if (node.type === NodeType.STAR) {
       node.color = '#FFD700';
     } else if (node.type === NodeType.SUPERNOVA) {
@@ -85,15 +156,97 @@ export class EntityManager {
     }
   }
 
+  public updateNodes(cellSize: number, gridSize: number, delta: number) {
+    this.nodes.forEach(node => {
+      node.update(cellSize, gridSize, delta);
+      
+      // Incremental Grid Update
+      if (node.gridX !== node.prevGridX || node.gridY !== node.prevGridY) {
+        const oldKey = `${node.prevGridX},${node.prevGridY}`;
+        const newKey = `${node.gridX},${node.gridY}`;
+        
+        // Remove from old cell
+        const oldCell = this.gridMap[oldKey];
+        if (oldCell) {
+          const idx = oldCell.indexOf(node);
+          if (idx !== -1) oldCell.splice(idx, 1);
+          if (oldCell.length === 0) {
+            delete this.gridMap[oldKey];
+            this.availableCells.add(oldKey);
+          }
+        }
+        
+        // Add to new cell
+        if (!this.gridMap[newKey]) this.gridMap[newKey] = [];
+        this.gridMap[newKey].push(node);
+        this.availableCells.delete(newKey);
+        
+        node.prevGridX = node.gridX;
+        node.prevGridY = node.gridY;
+      }
+    });
+  }
+
   public cleanup() {
-    this.nodes = this.nodes.filter(node => !node.pendingRemoval);
+    for (let i = this.nodes.length - 1; i >= 0; i--) {
+      const node = this.nodes[i];
+      if (node.pendingRemoval) {
+        // Remove from grid map
+        const key = `${node.gridX},${node.gridY}`;
+        const cell = this.gridMap[key];
+        if (cell) {
+          const idx = cell.indexOf(node);
+          if (idx !== -1) cell.splice(idx, 1);
+          if (cell.length === 0) delete this.gridMap[key];
+        }
+        
+        // Mark cell as available
+        this.availableCells.add(key);
+        
+        this.nodes.splice(i, 1);
+      }
+    }
+  }
+
+  public updateGridMap() {
+    // No-op: Grid map is now updated incrementally in updateNodes, addNode, and cleanup.
+    // Retained for compatibility with CollisionHandler interface.
+  }
+
+  public getNodesInCell(gridX: number, gridY: number): GameNode[] {
+    return this.gridMap[`${gridX},${gridY}`] || [];
   }
 
   public reset() {
     this.nodes = [];
+    this.lastSpawnTime = performance.now() - GAME_CONFIG.BASE_SPAWN_INTERVAL;
+    this.spawnVariance = 0;
   }
 
-  private getDistance(a: {x: number, y: number}, b: GameNode): number {
-    return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+  public processSpawning(
+    game: Game, 
+    now: number
+  ): void {
+    const interval = this.calculateSpawnInterval(
+      game.profile, 
+      game.scoreManager.getScore(), 
+      this.allNodes.some(n => n.type === NodeType.NEBULA)
+    ) + this.spawnVariance;
+
+    const timeSinceLastSpawn = now - this.lastSpawnTime;
+    
+    if (timeSinceLastSpawn >= interval + this.spawnVariance) {
+      console.log(`[SpawnDebug] TIMER EXPIRED: ${timeSinceLastSpawn.toFixed(2)}ms >= ${ (interval + this.spawnVariance).toFixed(2) }ms. Spawning...`);
+      
+      const node = this.spawnNode(game.profile, game.getCurrentTheme(), game.comboManager.getIsFrenzy());
+      if (!node) {
+        console.log('[SpawnDebug] Grid Full - Game Over');
+        game.transitionTo(GameState.GAME_OVER);
+      } else {
+        console.log(`[SpawnDebug] Successfully spawned ${node.type} at ${node.gridX},${node.gridY}`);
+        this.lastSpawnTime = now;
+        this.spawnVariance = (Math.random() - 0.5) * (interval * GAME_CONFIG.SPAWN_VARIANCE_MULTIPLIER);
+      }
+    }
   }
 }

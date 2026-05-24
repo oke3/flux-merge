@@ -1,10 +1,13 @@
 import { NODE_LEVELS, GAME_CONFIG, NodeType } from '../assets/constants';
 
 export class GameNode {
+  public id: string = crypto.randomUUID();
   public x: number;
   public y: number;
   public gridX: number;
   public gridY: number;
+  public prevGridX: number;
+  public prevGridY: number;
   public level: number;
   public radius: number;
   public type: NodeType;
@@ -20,6 +23,8 @@ export class GameNode {
     this.y = y;
     this.gridX = gridX;
     this.gridY = gridY;
+    this.prevGridX = gridX;
+    this.prevGridY = gridY;
     this.targetX = x;
     this.targetY = y;
     this.level = level;
@@ -27,17 +32,19 @@ export class GameNode {
     this.radius = GAME_CONFIG.NODE_RADIUS;
   }
 
-  public update(cellSize: number, gridSize: number) {
-    // Smooth interpolation towards target position
-    this.x += (this.targetX - this.x) * 0.1;
-    this.y += (this.targetY - this.y) * 0.1;
+  public update(cellSize: number, gridSize: number, deltaTime: number) {
+    // Smooth interpolation towards target position (time-scaled)
+    const lerpFactor = 1 - Math.exp(-10 * deltaTime / 1000);
+    this.x += (this.targetX - this.x) * lerpFactor;
+    this.y += (this.targetY - this.y) * lerpFactor;
 
     // Update grid coordinates based on current position
     this.gridX = Math.max(0, Math.min(gridSize - 1, Math.floor(this.x / cellSize)));
     this.gridY = Math.max(0, Math.min(gridSize - 1, Math.floor(this.y / cellSize)));
 
     // Smoothly return scale to 1 (squash and stretch recovery)
-    this.scale += (1 - this.scale) * 0.15;
+    const scaleLerp = 1 - Math.exp(-15 * deltaTime / 1000);
+    this.scale += (1 - this.scale) * scaleLerp;
   }
 
   public get scoreValue(): number {

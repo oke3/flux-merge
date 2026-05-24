@@ -4,14 +4,37 @@
  */
 import { GameNode } from '../core/GameNode';
 import { GAME_CONFIG } from '../assets/constants';
+import { ProfileManager } from './ProfileManager';
+import type { UserProfile } from './ProfileManager';
 
 export class Physics {
   /**
-   * Calculates and applies a magnetic pull between a node and a list of potential targets.
+   * Calculates the squared distance between two points.
+   * Used for performance optimization to avoid Math.sqrt().
    */
-  public static applyMagneticPull(nodeA: GameNode, targets: GameNode[], strengthMultiplier: number = 1) {
+  public static getDistanceSq(x1: number, y1: number, x2: number, y2: number): number {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    return dx * dx + dy * dy;
+  }
+
+  /**
+   * Calculates and applies a magnetic pull between a node and a list of potential targets.
+   * 
+   * @param nodeA The node being pulled.
+   * @param targets A list of nearby nodes.
+   * @param strengthMultiplier A multiplier for the strength of the pull.
+   * @param profile The user profile, used to get the base magnetic pull strength.
+   */
+  public static applyMagneticPull(nodeA: GameNode, targets: GameNode[], strengthMultiplier: number = 1, profile?: UserProfile) {
+    if (nodeA.pendingRemoval) return;
+    let baseStrength = GAME_CONFIG.MAGNETIC_PULL_STRENGTH;
+    if (profile) {
+      baseStrength = ProfileManager.getAbilityValue('magneticPull', profile);
+    }
+
     for (const nodeB of targets) {
-      if (nodeA === nodeB) continue;
+      if (nodeA === nodeB || nodeB.pendingRemoval) continue;
       if (nodeA.level !== nodeB.level) continue;
       if (nodeA.isDragging || nodeB.isDragging) continue;
 
@@ -19,18 +42,38 @@ export class Physics {
       const dy = nodeB.y - nodeA.y;
       const distanceSq = dx * dx + dy * dy;
 
-      // Use distance squared for faster comparison
-      const maxPullDistance = (600 / GAME_CONFIG.GRID_SIZE) * 3;
-      const maxPullDistanceSq = maxPullDistance * maxPullDistance;
+        // Use distance squared for faster comparison
+        const maxPullDistance = (GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE) * GAME_CONFIG.PHYSICS_MAGNETIC_DISTANCE_MULT;
+        const maxPullDistanceSq = maxPullDistance * maxPullDistance;
 
-      if (distanceSq > 0 && distanceSq < maxPullDistanceSq) {
-        const distance = Math.sqrt(distanceSq);
-        const force = GAME_CONFIG.MAGNETIC_PULL_STRENGTH * (1 - distance / maxPullDistance) * strengthMultiplier;
+        if (distanceSq > 0 && distanceSq < maxPullDistanceSq) {
+          const distance = Math.sqrt(distanceSq);
+          const force = baseStrength * (1 - distance / maxPullDistance) * strengthMultiplier;
 
-        // Move nodeA slightly towards nodeB
-        nodeA.targetX += (dx / distance) * force * 10;
-        nodeA.targetY += (dy / distance) * force * 10;
+          const nextX = nodeA.targetX + (dx / distance) * force * GAME_CONFIG.PHYSICS_MAGNETIC_FORCE_MULT;
+          const nextY = nodeA.targetY + (dy / distance) * force * GAME_CONFIG.PHYSICS_MAGNETIC_FORCE_MULT;
+
+          if (Number.isFinite(nextX) && Number.isFinite(nextY)) {
+            nodeA.targetX = nextX;
+            nodeA.targetY = nextY;
+          }
+        }
+
+    }
+  }
+
+  public static applyMagneticPullToAll(nodes: GameNode[], gridMap: Record<string, GameNode[]>, multiplier: number, profile?: UserProfile) {
+    for (const node of nodes) {
+      const nearbyGameNodes: GameNode[] = [];
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const cellNodes = gridMap[`${node.gridX + dx},${node.gridY + dy}`];
+          if (cellNodes) {
+            nearbyGameNodes.push(...cellNodes);
+          }
+        }
       }
+      this.applyMagneticPull(node, nearbyGameNodes, multiplier, profile);
     }
   }
 
@@ -60,10 +103,10 @@ export class Physics {
     const dy = node.y - sourceY;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    if (distance > 0 && distance < 300) {
-      const force = strength * (1 - distance / 300);
-      node.targetX += (dx / distance) * force * 20;
-      node.targetY += (dy / distance) * force * 20;
+    if (distance > 0 && distance < GAME_CONFIG.PHYSICS_REPULSION_DISTANCE) {
+      const force = strength * (1 - distance / GAME_CONFIG.PHYSICS_REPULSION_DISTANCE);
+      node.targetX += (dx / distance) * force * GAME_CONFIG.PHYSICS_REPULSION_FORCE_MULT;
+      node.targetY += (dy / distance) * force * GAME_CONFIG.PHYSICS_REPULSION_FORCE_MULT;
     }
   }
 }

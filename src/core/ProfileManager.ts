@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
  */
 import { ABILITIES, type UserProfile } from '../assets/constants';
+import { UserProfileSchema } from './schemas';
 
 export type { UserProfile };
 
@@ -12,6 +13,7 @@ export class ProfileManager {
     return {
       xp: 0,
       level: 1,
+      galaxy: 1,
       upgrades: {
         magneticPull: 0,
         frenzyDuration: 0,
@@ -32,9 +34,9 @@ export class ProfileManager {
     const saved = localStorage.getItem(this.PROFILE_KEY);
     if (!saved) return this.defaultProfile();
     try {
-      return JSON.parse(saved);
+      return UserProfileSchema.parse(JSON.parse(saved));
     } catch (e) {
-      console.error('[ProfileManager] Failed to load profile, resetting...', e);
+      console.error('[ProfileManager] Failed to load profile or schema violation, resetting...', e);
       return this.defaultProfile();
     }
   }
@@ -58,6 +60,14 @@ export class ProfileManager {
       return true;
     }
     return false;
+  }
+
+  public static calculateXPGain(points: number, hasNebula: boolean): number {
+    let xpMultiplier = 1;
+    if (hasNebula) {
+      xpMultiplier = 1.5;
+    }
+    return Math.floor((points / 5) * xpMultiplier);
   }
 
   public static addXP(profile: UserProfile, amount: number): { levelUp: boolean; newLevel: number } {
@@ -107,5 +117,12 @@ export class ProfileManager {
     profile.upgrades[abilityId] = level + 1;
     
     return true;
+  }
+
+  public static ascendGalaxy(profile: UserProfile) {
+    profile.galaxy += 1;
+    // Bonus: increment cosmic luck
+    profile.upgrades.specialChance = (profile.upgrades.specialChance || 0) + 1;
+    this.saveProfile(profile);
   }
 }

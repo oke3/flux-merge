@@ -12,27 +12,41 @@ vi.mock('../assets/constants', async () => {
   return {
     ...actual,
     GAME_CONFIG: {
+      ...(actual.GAME_CONFIG as any),
       CANVAS_SIZE: 800,
       GRID_SIZE: 10,
       NODE_RADIUS: 10,
       PULSE_RADIUS: 50,
       VOID_CONSUMPTION_RADIUS: 30,
-      MAGNETIC_PULL_STRENGTH: 0.5,
     }
   };
 });
+
 vi.mock('../core/AudioManager');
-vi.mock('../core/ScoreManager');
+vi.mock('../core/ScoreManager', () => ({
+  ScoreManager: class {
+    getScore = vi.fn(() => 0);
+    getCombo = vi.fn(() => 1);
+    resetHighScore = vi.fn();
+    addScore = vi.fn();
+    incrementCombo = vi.fn();
+  }
+}));
 vi.mock('../core/ParticleSystem');
 vi.mock('../core/Ripple');
 vi.mock('../core/StorageManager');
 vi.mock('../core/BadgeManager');
 vi.mock('../core/ProfileManager', () => ({
   ProfileManager: {
-    loadProfile: () => ({ settings: { theme: 'deepSpace', disableVibration: true } }),
+    loadProfile: () => ({ settings: { theme: 'deepSpace', disableVibration: true }, galaxy: 1 }),
     getAbilityValue: () => 0.05,
+    ascendGalaxy: vi.fn(),
+    calculateXPGain: vi.fn(() => 10),
+    addXP: vi.fn(() => ({ levelUp: false, newLevel: 1 })),
+    saveProfile: vi.fn(),
   }
 }));
+
 
 describe('Special Nodes & Complex Interactions', () => {
   let game: any;
@@ -42,7 +56,7 @@ describe('Special Nodes & Complex Interactions', () => {
     
     vi.stubGlobal('requestAnimationFrame', vi.fn((cb) => setTimeout(cb, 16)));
     vi.stubGlobal('cancelAnimationFrame', vi.fn((id) => clearTimeout(id)));
-    vi.stubGlobal('performance', { now: vi.fn(() => Date.now()) });
+    vi.stubGlobal('performance', { now: vi.fn(() => 0) });
     vi.stubGlobal('navigator', { vibrate: vi.fn() });
 
     game = new Game();
@@ -115,6 +129,12 @@ describe('Special Nodes & Complex Interactions', () => {
     game.nodes = [nodeA, nodeB, nodeD];
 
     game.update(16.67);
+    // First merge: A + B -> C (level 2)
+    
+    game.update(16.67);
+    // Second merge: C + D -> E (level 3)
+    
+    console.log('Nodes after update:', game.nodes.map((n: any) => ({ level: n.level, x: n.x, y: n.y })));
 
     // After 1 frame, A and B should merge to create a level 2 node.
     // That level 2 node should then merge with D to create a level 3 node.

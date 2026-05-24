@@ -3,9 +3,10 @@
  * Proprietary and confidential. Reverse engineering prohibited.
  */
 import * as THREE from 'three';
+import type { IRipple, IParticle } from '../core/types';
 import type { IRenderer } from './IRenderer';
 import { GameNode } from '../core/GameNode';
-import { GAME_CONFIG } from '../assets/constants';
+import { GAME_CONFIG, NodeType } from '../assets/constants';
 
 export class ThreeRenderer implements IRenderer {
   private scene: THREE.Scene;
@@ -14,9 +15,10 @@ export class ThreeRenderer implements IRenderer {
   private container: HTMLElement;
   private gridHelper: THREE.GridHelper;
   private nodesMeshes: Map<GameNode, THREE.Mesh> = new Map();
-  private ripplesMeshes: Map<any, THREE.Mesh> = new Map();
+  private ripplesMeshes: Map<IRipple, THREE.Mesh> = new Map();
   private particlesSystem: THREE.Points | null = null;
   private particlesGeometry: THREE.BufferGeometry | null = null;
+  private ghostMesh: THREE.Mesh | null = null;
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId)!.parentElement!;
@@ -81,20 +83,38 @@ export class ThreeRenderer implements IRenderer {
     let mesh = this.nodesMeshes.get(node);
 
     if (!mesh) {
-      // Create geometry based on level
-      const geometry = this.createGeometryForLevel(node.level);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: node.color,
-        emissive: node.color,
-        emissiveIntensity: 0.5,
-        metalness: 0.7,
-        roughness: 0.2
-      });
+      if (node.type === NodeType.BLACK_HOLE) {
+        const geometry = new THREE.SphereGeometry(GAME_CONFIG.NODE_RADIUS, 32, 32);
+        const material = new THREE.MeshStandardMaterial({ 
+          color: 0x050010, 
+          roughness: 0, 
+          metalness: 1 
+        });
+        mesh = new THREE.Mesh(geometry, material);
+        
+        const ringGeo = new THREE.TorusGeometry(GAME_CONFIG.NODE_RADIUS, 0.1, 16, 100);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x6400ff });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 2;
+        mesh.add(ring);
+      } else {
+        // Create geometry based on level
+        const geometry = this.createGeometryForLevel(node.level);
+        const material = new THREE.MeshStandardMaterial({ 
+          color: node.color,
+          emissive: node.color,
+          emissiveIntensity: 0.5,
+          metalness: 0.7,
+          roughness: 0.2
+        });
+        
+        mesh = new THREE.Mesh(geometry, material);
+      }
       
-      mesh = new THREE.Mesh(geometry, material);
       this.scene.add(mesh);
       this.nodesMeshes.set(node, mesh);
     }
+
 
     // Map 2D coordinates (0-600) to 3D coordinates (-300 to 300)
     const x = node.x - GAME_CONFIG.CANVAS_SIZE / 2;
@@ -115,7 +135,7 @@ export class ThreeRenderer implements IRenderer {
     }
   }
 
-  public drawRipple(ripple: any) {
+  public drawRipple(ripple: IRipple) {
     let mesh = this.ripplesMeshes.get(ripple);
 
     if (!mesh) {
@@ -148,11 +168,23 @@ export class ThreeRenderer implements IRenderer {
     }
   }
 
-  public drawParticles(particles: any[]) {
+  public drawRipples(ripples: IRipple[]) {
+    ripples.forEach(ripple => this.drawRipple(ripple));
+  }
+
+  public drawParticles(particles: IParticle[]) {
     if (particles.length === 0) return;
 
+    const MAX_PARTICLES = 2000;
     if (!this.particlesSystem) {
       this.particlesGeometry = new THREE.BufferGeometry();
+      
+      const positions = new Float32Array(MAX_PARTICLES * 3);
+      const colors = new Float32Array(MAX_PARTICLES * 3);
+      
+      this.particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
+      this.particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3).setUsage(THREE.DynamicDrawUsage));
+      
       const material = new THREE.PointsMaterial({ 
         size: 0.2, 
         vertexColors: true, 
@@ -163,12 +195,15 @@ export class ThreeRenderer implements IRenderer {
       this.scene.add(this.particlesSystem);
     }
 
-    const positions = new Float32Array(particles.length * 3);
-    const colors = new Float32Array(particles.length * 3);
+    const posAttr = this.particlesGeometry!.getAttribute('position') as THREE.BufferAttribute;
+    const colAttr = this.particlesGeometry!.getAttribute('color') as THREE.BufferAttribute;
+    const positions = posAttr.array as Float32Array;
+    const colors = colAttr.array as Float32Array;
 
-    particles.forEach((p, i) => {
+    const count = Math.min(particles.length, MAX_PARTICLES);
+    for (let i = 0; i < count; i++) {
+      const p = particles[i];
       positions[i * 3] = p.x - GAME_CONFIG.CANVAS_SIZE / 2;
-      positions[i * 3 + 1] = -(p.y - GAME_CONFIG.CANVAS_SIZE / 2);
       positions[i * 3 + 1] = -(p.y - GAME_CONFIG.CANVAS_SIZE / 2);
       positions[i * 3 + 2] = 0;
 
@@ -176,10 +211,11 @@ export class ThreeRenderer implements IRenderer {
       colors[i * 3] = color.r;
       colors[i * 3 + 1] = color.g;
       colors[i * 3 + 2] = color.b;
-    });
+    }
 
-    this.particlesGeometry!.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    this.particlesGeometry!.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    posAttr.needsUpdate = true;
+    colAttr.needsUpdate = true;
+    this.particlesSystem.geometry.setDrawRange(0, count);
   }
 
   public applyShake(intensity: number) {
@@ -191,6 +227,38 @@ export class ThreeRenderer implements IRenderer {
   public resetShake() {
     this.camera.position.x = 0;
     this.camera.position.y = 0;
+  }
+
+  public setFever(active: boolean) {
+    if (active) {
+      this.scene.background = new THREE.Color(0x2a0a2a); // Subtle purple shift
+    } else {
+      this.scene.background = new THREE.Color(0x0f0f1a);
+    }
+  }
+
+  public updateGhostNode(x: number, y: number) {
+    if (!this.ghostMesh) {
+      const geometry = new THREE.SphereGeometry(GAME_CONFIG.NODE_RADIUS, 32, 32);
+      const material = new THREE.MeshBasicMaterial({ 
+        color: 0xffffff, 
+        transparent: true, 
+        opacity: 0.3 
+      });
+      this.ghostMesh = new THREE.Mesh(geometry, material);
+      this.scene.add(this.ghostMesh);
+    }
+    
+    const gx = x - GAME_CONFIG.CANVAS_SIZE / 2;
+    const gy = -(y - GAME_CONFIG.CANVAS_SIZE / 2);
+    this.ghostMesh.position.set(gx, gy, 0);
+    this.ghostMesh.visible = true;
+  }
+
+  public hideGhostNode() {
+    if (this.ghostMesh) {
+      this.ghostMesh.visible = false;
+    }
   }
 
   public render() {

@@ -37,8 +37,10 @@ export class Input {
 
   private handleMouseDown = (e: MouseEvent) => {
     const rect = this.canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
     
     const node = this.findNode(x, y);
     if (node) {
@@ -50,8 +52,10 @@ export class Input {
   private handleMouseMove = (e: MouseEvent) => {
     if (!this.draggedNode) return;
     const rect = this.canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
     this.onDragMove(this.draggedNode, x, y);
   };
 

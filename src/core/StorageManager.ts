@@ -1,12 +1,11 @@
 /* 
  * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
  */
-export interface GameSession {
-  date: string;
-  score: number;
-  maxLevel: number;
-  duration: number; // in seconds
-}
+import { EntityManager } from './EntityManager';
+import { ScoreManager } from './ScoreManager';
+import { z, GameSessionSchema, type GameSessionData } from './schemas';
+
+export interface GameSession extends GameSessionData {}
 
 export class StorageManager {
   private static readonly HISTORY_KEY = 'flux-merge-history';
@@ -19,8 +18,28 @@ export class StorageManager {
     localStorage.setItem(this.HISTORY_KEY, JSON.stringify(sorted));
   }
 
+  public static saveCurrentSession(entityManager: EntityManager, scoreManager: ScoreManager, startTime: number) {
+    const duration = Math.floor((performance.now() - startTime) / 1000);
+    const maxLevel = entityManager.allNodes.length > 0 ? Math.max(...entityManager.allNodes.map(n => n.level)) : 1;
+    
+    const session: GameSession = {
+      date: new Date().toISOString(),
+      score: scoreManager.getScore(),
+      maxLevel: maxLevel,
+      duration: duration
+    };
+    this.saveSession(session);
+  }
+
   public static getHistory(): GameSession[] {
     const saved = localStorage.getItem(this.HISTORY_KEY);
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return z.array(GameSessionSchema).parse(parsed);
+    } catch (e) {
+      console.error('[StorageManager] History corruption detected, resetting...', e);
+      return [];
+    }
   }
 }
