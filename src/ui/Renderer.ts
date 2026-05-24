@@ -7,6 +7,8 @@ export class Renderer implements IRenderer {
   private canvas: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
   private visualCache: Map<string, HTMLCanvasElement> = new Map();
+  private gridCache: HTMLCanvasElement | null = null;
+  private backgroundCache: HTMLCanvasElement | null = null;
   private powerSaver: boolean = false;
 
 
@@ -51,46 +53,58 @@ export class Renderer implements IRenderer {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
-  public drawBackground(offset: number) {
-    if (!this.ctx || !this.canvas) return;
+  private createBackgroundCache() {
+    if (!this.canvas) return;
+    const size = GAME_CONFIG.CANVAS_SIZE;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = size * 2;
+    offscreen.height = size;
+    const octx = offscreen.getContext('2d')!;
     
     const starCounts = this.powerSaver 
       ? { small: 20, medium: 10, large: 5 } 
       : { small: 50, medium: 30, large: 15 };
 
-    // Layer 1: Distant Small Stars
-    this.ctx.fillStyle = 'white';
-    for (let i = 0; i < starCounts.small; i++) {
-      const x = (Math.sin(i) * 10000 + offset * 0.2) % this.canvas.width;
-      const y = (Math.cos(i) * 10000) % this.canvas.height;
-      this.ctx.globalAlpha = 0.3;
-      this.ctx.beginPath();
-      this.ctx.arc(x < 0 ? x + this.canvas.width : x, y, 1, 0, Math.PI * 2);
-      this.ctx.fill();
+    // Corrected loop: draw stars once and then mirror them to the second half of the canvas
+    const renderLayer = (count: number, color: string, alpha: number, radius: number) => {
+      octx.fillStyle = color;
+      octx.globalAlpha = alpha;
+      for (let i = 0; i < count; i++) {
+        const x = (Math.sin(i) * 10000) % size;
+        const y = (Math.cos(i) * 10000) % size;
+        
+        octx.beginPath();
+        octx.arc(x, y, radius, 0, Math.PI * 2);
+        octx.fill();
+        
+        octx.beginPath();
+        octx.arc(x + size, y, radius, 0, Math.PI * 2);
+        octx.fill();
+      }
+    };
+
+
+    renderLayer(starCounts.small, 'white', 0.3, 1);
+    renderLayer(starCounts.medium, '#B0C4DE', 0.6, 1.5);
+    renderLayer(starCounts.large, '#FFFFFF', 0.9, 2);
+    
+    octx.globalAlpha = 1.0;
+    this.backgroundCache = offscreen;
+  }
+
+  public drawBackground(offset: number) {
+    if (!this.ctx || !this.canvas) return;
+    if (!this.backgroundCache) {
+      this.createBackgroundCache();
     }
-  
-    // Layer 2: Mid-distance Medium Stars
-    this.ctx.fillStyle = '#B0C4DE';
-    for (let i = 0; i < starCounts.medium; i++) {
-      const x = (Math.sin(i * 2) * 10000 + offset * 0.5) % this.canvas.width;
-      const y = (Math.cos(i * 2) * 10000) % this.canvas.height;
-      this.ctx.globalAlpha = 0.6;
-      this.ctx.beginPath();
-      this.ctx.arc(x < 0 ? x + this.canvas.width : x, y, 1.5, 0, Math.PI * 2);
-      this.ctx.fill();
-    }
-  
-    // Layer 3: Close Large Stars
-    this.ctx.fillStyle = '#FFFFFF';
-    for (let i = 0; i < starCounts.large; i++) {
-      const x = (Math.sin(i * 3) * 10000 + offset * 1.2) % this.canvas.width;
-      const y = (Math.cos(i * 3) * 10000) % this.canvas.height;
-      this.ctx.globalAlpha = 0.9;
-      this.ctx.beginPath();
-      this.ctx.arc(x < 0 ? x + this.canvas.width : x, y, 2, 0, Math.PI * 2);
-      this.ctx.fill();
-    }
-    this.ctx.globalAlpha = 1.0;
+    
+    // Use a modulo to keep the offset within the bounds of the first canvas width
+    const scaledOffset = (offset * 0.5) % GAME_CONFIG.CANVAS_SIZE;
+    const drawX = scaledOffset < 0 ? scaledOffset + GAME_CONFIG.CANVAS_SIZE : scaledOffset;
+    
+    // Draw the double-width canvas twice to cover the screen and create the loop
+    this.ctx.drawImage(this.backgroundCache!, -drawX, 0);
+    this.ctx.drawImage(this.backgroundCache!, GAME_CONFIG.CANVAS_SIZE - drawX, 0);
   }
 
 
@@ -328,31 +342,75 @@ export class Renderer implements IRenderer {
     // Not implemented for 2D
   }
 
-  public drawGrid() {
-    if (!this.ctx || !this.canvas) return;
-    const cellSize = this.canvas.width / GAME_CONFIG.GRID_SIZE;
-    this.ctx.strokeStyle = COLORS.GLASS_BORDER;
-    this.ctx.lineWidth = 1;
-
+  private createGridCache() {
+    if (!this.canvas) return;
+    const size = GAME_CONFIG.CANVAS_SIZE;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = size;
+    offscreen.height = size;
+    const octx = offscreen.getContext('2d')!;
+    
+    const cellSize = size / GAME_CONFIG.GRID_SIZE;
+    octx.strokeStyle = COLORS.GLASS_BORDER;
+    octx.lineWidth = 1;
+    
     for (let i = 0; i <= GAME_CONFIG.GRID_SIZE; i++) {
       // Vertical lines
-      this.ctx.beginPath();
-      this.ctx.moveTo(i * cellSize, 0);
-      this.ctx.lineTo(i * cellSize, this.canvas.height);
-      this.ctx.stroke();
-
+      octx.beginPath();
+      octx.moveTo(i * cellSize, 0);
+      octx.lineTo(i * cellSize, size);
+      octx.stroke();
+      
       // Horizontal lines
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, i * cellSize);
-      this.ctx.lineTo(this.canvas.width, i * cellSize);
-      this.ctx.stroke();
+      octx.beginPath();
+      octx.moveTo(0, i * cellSize);
+      octx.lineTo(size, i * cellSize);
+      octx.stroke();
     }
+    this.gridCache = offscreen;
   }
 
-  public drawGameNode(node: GameNode) {
+  public drawGrid() {
+    if (!this.ctx) return;
+    if (!this.gridCache) {
+      this.createGridCache();
+    }
+    this.ctx.drawImage(this.gridCache!, 0, 0);
+  }
+
+
+  public drawDebugPointer(x: number, y: number) {
+    if (!this.ctx) return;
+    this.ctx.save();
+    this.ctx.fillStyle = 'red';
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, 5, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.strokeStyle = 'white';
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+    this.ctx.restore();
+  }
+
+  public drawDebugHitboxes(nodes: GameNode[]) {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+    ctx.lineWidth = 1;
+    nodes.forEach(node => {
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, node.radius * 2.5, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+
+  public drawGameNode(node: GameNode, isHovered: boolean = false) {
     if (!this.ctx || !this.canvas) return;
     const { x, y, scale } = node;
-
+ 
     const cachedCanvas = this.getOrCreateCachedNode(node);
     
     this.ctx.save();
@@ -365,21 +423,32 @@ export class Renderer implements IRenderer {
     this.ctx.drawImage(cachedCanvas, 0, 0);
     this.ctx.restore();
 
+    // Hover Highlight Ring
+    if (isHovered) {
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, node.radius * 1.2 * scale, 0, Math.PI * 2);
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      this.ctx.lineWidth = 3 * scale;
+      this.ctx.stroke();
+      this.ctx.restore();
+    }
+ 
     // Luminous Nova Pulse Ring
     if (node.type === NodeType.LUMINOUS_NOVA) {
-      const nova = node as any; // cast to access currentPulseRadius
-      if (nova.currentPulseRadius > 0) {
+      if (node.currentPulseRadius > 0) {
         this.ctx.save();
         this.ctx.beginPath();
-        this.ctx.arc(x, y, nova.currentPulseRadius * scale, 0, Math.PI * 2);
-        this.ctx.strokeStyle = nova.isSnapping ? '#FFFFFF' : 'rgba(255, 215, 0, 0.5)';
+        this.ctx.arc(x, y, node.currentPulseRadius * scale, 0, Math.PI * 2);
+        this.ctx.strokeStyle = node.isSnapping ? '#FFFFFF' : 'rgba(255, 215, 0, 0.5)';
         this.ctx.lineWidth = 2 * scale;
-        this.ctx.globalAlpha = nova.isSnapping ? 1.0 : 0.5;
+        this.ctx.globalAlpha = node.isSnapping ? 1.0 : 0.5;
         this.ctx.stroke();
         this.ctx.restore();
       }
     }
   }
+
 
   public drawRipple(ripple: IRipple) {
 

@@ -44,8 +44,21 @@ export class EntityManager {
   }
 
   public findNodeAt(x: number, y: number): GameNode | null {
-    // Increased hit area for better mobile accessibility (from 1.5x to 2.5x radius)
-    return this.nodes.find(n => Physics.getDistanceSq(x, y, n.x, n.y) < (n.radius * 2.5) * (n.radius * 2.5)) || null;
+    // Search for all nodes within the hit area and pick the one with the highest level (Z-order)
+    let bestNode: GameNode | null = null;
+    let maxLevel = -1;
+
+    const hitRadiusSq = (GAME_CONFIG.NODE_RADIUS * 2.5) ** 2;
+
+    for (const node of this.nodes) {
+      if (Physics.getDistanceSq(x, y, node.x, node.y) < hitRadiusSq) {
+        if (node.level > maxLevel) {
+          maxLevel = node.level;
+          bestNode = node;
+        }
+      }
+    }
+    return bestNode;
   }
 
   public calculateSpawnInterval(profile: UserProfile, score: number, hasNebula: boolean): number {

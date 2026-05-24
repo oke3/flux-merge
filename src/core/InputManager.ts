@@ -10,10 +10,13 @@ export interface InputState {
   mouseY: number;
   isDragging: boolean;
   draggedNodeId: string | null;
+  hoveredNodeId: string | null;
   snappedX: number;
   snappedY: number;
   snappedGridX: number;
   snappedGridY: number;
+  debugPointer: boolean;
+  debugHitboxes: boolean;
 }
 
 export interface InputConfig {
@@ -30,10 +33,13 @@ export class InputManager {
     mouseY: 0,
     isDragging: false,
     draggedNodeId: null,
+    hoveredNodeId: null,
     snappedX: 0,
     snappedY: 0,
     snappedGridX: 0,
     snappedGridY: 0,
+    debugPointer: true,
+    debugHitboxes: true,
   };
 
   private canvas: HTMLCanvasElement;
@@ -73,12 +79,23 @@ export class InputManager {
   private getCanvasCoordinates(clientX: number, clientY: number) {
     const rect = this.canvas.getBoundingClientRect();
     const virtualSize = GAME_CONFIG.CANVAS_SIZE;
-    const scaleX = virtualSize / rect.width;
-    const scaleY = virtualSize / rect.height;
-    return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY,
-    };
+    
+    // Prevent division by zero if canvas is not yet rendered
+    const width = rect.width || 1;
+    const height = rect.height || 1;
+    
+    const scaleX = virtualSize / width;
+    const scaleY = virtualSize / height;
+    
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+
+    // On-screen coordinate debugging
+    if (this.state.debugPointer) {
+      this.log(`Coord: [${x.toFixed(1)}, ${y.toFixed(1)}] (Client: ${clientX},${clientY} | Rect: ${rect.left.toFixed(1)},${rect.top.toFixed(1)} | Scale: ${scaleX.toFixed(2)})`);
+    }
+
+    return { x, y };
   }
 
   private updateInputState(x: number, y: number) {
@@ -116,6 +133,9 @@ export class InputManager {
   private handlePointerMove = (e: PointerEvent) => {
     const { x, y } = this.getCanvasCoordinates(e.clientX, e.clientY);
     this.updateInputState(x, y);
+
+    const node = this.findNode(x, y);
+    this.state.hoveredNodeId = node ? node.id : null;
 
     if (this.draggedNode) {
       this.onDragMove(this.draggedNode, x, y);

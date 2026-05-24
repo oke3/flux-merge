@@ -9,7 +9,7 @@ export interface IRenderer {
   clear(): void;
   drawBackground(offset: number): void;
   drawGrid(): void;
-  drawGameNode(node: GameNode): void;
+  drawGameNode(node: GameNode, isHovered?: boolean): void;
   drawRipple(ripple: Ripple): void;
   drawRipples(ripples: Ripple[]): void;
   drawParticles(particles: Particle[]): void;
@@ -20,5 +20,7 @@ export interface IRenderer {
   updateGhostNode(x: number, y: number, level: number, type?: any, currentX?: number, currentY?: number): void;
   hideGhostNode(): void;
   setPowerSaver(enabled: boolean): void;
+  drawDebugPointer(x: number, y: number): void;
+  drawDebugHitboxes(nodes: GameNode[]): void;
 }
 

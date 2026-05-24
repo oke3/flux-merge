@@ -263,6 +263,34 @@ export class ThreeRenderer implements IRenderer {
     }
   }
 
+  public drawDebugPointer(x: number, y: number) {
+    // 3D Debug pointer: a small red sphere
+    const geometry = new THREE.SphereGeometry(0.5, 16, 16);
+    const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const pointer = new THREE.Mesh(geometry, material);
+    pointer.position.set(x - GAME_CONFIG.CANVAS_SIZE / 2, -(y - GAME_CONFIG.CANVAS_SIZE / 2), 0.1);
+    this.scene.add(pointer);
+    
+    // Remove after one frame (approximate)
+    setTimeout(() => this.scene.remove(pointer), 16);
+  }
+
+  public drawDebugHitboxes(nodes: GameNode[]) {
+    nodes.forEach(node => {
+      const geometry = new THREE.RingGeometry(node.radius * 2.5, node.radius * 2.6, 32);
+      const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+      const ring = new THREE.Mesh(geometry, material);
+      ring.position.set(node.x - GAME_CONFIG.CANVAS_SIZE / 2, -(node.y - GAME_CONFIG.CANVAS_SIZE / 2), 0.05);
+      this.scene.add(ring);
+      
+      setTimeout(() => {
+        this.scene.remove(ring);
+        ring.geometry.dispose();
+        ring.material.dispose();
+      }, 16);
+    });
+  }
+
   public setPowerSaver(enabled: boolean) {
     this.powerSaver = enabled;
   }

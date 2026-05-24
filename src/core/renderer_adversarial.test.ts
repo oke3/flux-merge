@@ -59,6 +59,7 @@ vi.mock('../ui/Renderer', () => {
       drawParticles = vi.fn();
       applyShake = vi.fn();
       resetShake = vi.fn();
+      setPowerSaver = vi.fn();
     }
   };
 });
@@ -74,6 +75,7 @@ vi.mock('../ui/ThreeRenderer', () => {
       drawParticles = vi.fn();
       applyShake = vi.fn();
       resetShake = vi.fn();
+      setPowerSaver = vi.fn();
     }
   };
 });

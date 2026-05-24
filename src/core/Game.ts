@@ -475,38 +475,45 @@ export class Game implements CollisionHandler, GameStateListener {
       this.renderer.drawBackground(this.effects.getBackgroundOffset());
       this.renderer.drawGrid();
       
-      // Render Ghost Node for predictive snapping
       const inputState = this.inputManager.getState();
-       if (inputState.isDragging && inputState.draggedNodeId) {
-         const draggedNode = this.entityManager.getNodeById(inputState.draggedNodeId);
-         if (draggedNode) {
-           this.renderer.updateGhostNode(
-             inputState.snappedX, 
-             inputState.snappedY, 
-             draggedNode.level, 
-             draggedNode.type,
-             draggedNode.x,
-             draggedNode.y
-           );
-         }
-       }
-
+      
+      // DRAW DEBUG OVERLAYS
+      if (inputState.debugPointer) {
+        this.renderer.drawDebugPointer(inputState.mouseX, inputState.mouseY);
+      }
+      if (inputState.debugHitboxes) {
+        this.renderer.drawDebugHitboxes(this.nodes);
+      }
+      
+      // Render Ghost Node for predictive snapping
+      if (inputState.isDragging && inputState.draggedNodeId) {
+        const draggedNode = this.entityManager.getNodeById(inputState.draggedNodeId);
+        if (draggedNode) {
+          this.renderer.updateGhostNode(
+            inputState.snappedX, 
+            inputState.snappedY, 
+            draggedNode.level, 
+            draggedNode.type,
+            draggedNode.x,
+            draggedNode.y
+          );
+        }
+      }
       
       // Apply screen shake translation
       this.renderer.applyShake(this.effects.getScreenShakeIntensity());
-      this.renderer.applyShake(this.effects.getScreenShakeIntensity());
       
-       this.nodes.forEach((node, idx) => {
-        if (!node) {
-          console.error(`[Game] Null node detected at index ${idx}`);
-          return;
-        }
-        this.renderer.drawGameNode(node);
+      // Render Nodes
+      this.nodes.forEach((node) => {
+        if (!node) return;
+        this.renderer.drawGameNode(node, node.id === inputState.hoveredNodeId);
       });
+      
       this.renderer.drawRipples(this.effects.getRipples());
       this.renderer.drawParticles(this.particles.getParticles());
-  
+      
       this.renderer.resetShake();
+
       
     } catch (e) {
       console.error('[Game] CRITICAL CRASH:', e);
