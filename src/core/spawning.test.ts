@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EntityManager } from './EntityManager';
-import { GAME_CONFIG, GameState } from '../assets/constants';
+import { GAME_CONFIG } from '../assets/constants';
 import { Game } from './Game';
 
 
