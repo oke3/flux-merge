@@ -69,8 +69,9 @@ export class InputManager {
 
   private getCanvasCoordinates(clientX: number, clientY: number) {
     const rect = this.canvas.getBoundingClientRect();
-    const scaleX = this.canvas.width / rect.width;
-    const scaleY = this.canvas.height / rect.height;
+    const virtualSize = GAME_CONFIG.CANVAS_SIZE;
+    const scaleX = virtualSize / rect.width;
+    const scaleY = virtualSize / rect.height;
     return {
       x: (clientX - rect.left) * scaleX,
       y: (clientY - rect.top) * scaleY,
