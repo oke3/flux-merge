@@ -1,7 +1,4 @@
-/* 
- * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
- * Proprietary and confidential. Reverse engineering prohibited.
- */
+// SPDX-License-Identifier: Proprietary
 /**
  * Flux Merge Core Game Engine
  * Version: 1.0.1 - Stability Update
@@ -46,6 +43,8 @@ export class Game implements CollisionHandler, GameStateListener {
   private currentTheme: string = 'deepSpace';
   private isWin: boolean = false;
   private isPlaying: boolean = false;
+  public timeSlowMultiplier: number = 1;
+  private timeSlowUntil: number = 0;
   private animationFrameId: number | null = null;
   private lastFrameTime: number | null = null;
   private physicsAccumulator: number = 0;
@@ -64,7 +63,15 @@ export class Game implements CollisionHandler, GameStateListener {
 
   // CollisionHandler Implementation
   public addScore(points: number) {
+    const prevLevel = this.profile.level;
     this.scoreManager.addScore(points, this.profile, this.nodes);
+    
+    if (this.profile.level > prevLevel) {
+      // Level Up Celebration!
+      this.particles.spawnBurst(300, 300, '#FFD700', 40);
+      this.pulseHUD();
+      this.ui.showLevelUp(this.profile.level);
+    }
   }
 
   public incrementCombo() {
@@ -95,6 +102,11 @@ export class Game implements CollisionHandler, GameStateListener {
     }
   }
 
+  public playUIAudio() { this.audioManager.playUI(); }
+  public playNotificationAudio() { this.audioManager.playNotification(); }
+  public playGameOverAudio() { this.audioManager.playGameOver(); }
+  public playWinAudio() { this.audioManager.playWin(); }
+
   public spawnBurst(x: number, y: number, color: string, count: number) {
     this.particles.spawnBurst(x, y, color, count);
   }
@@ -113,6 +125,13 @@ export class Game implements CollisionHandler, GameStateListener {
 
   public spawnGameNode() {
     this.entityManager.spawnNode(this.profile, this.currentTheme);
+  }
+
+  public triggerTimeSlow(duration: number, factor: number) {
+    this.timeSlowMultiplier = factor;
+    this.timeSlowUntil = performance.now() + duration;
+    this.ui.showNotification('⏳ Time Slowed!');
+    this.audioManager.playNotification();
   }
 
   public transitionToWin() {
@@ -149,12 +168,15 @@ export class Game implements CollisionHandler, GameStateListener {
     this.ui.pulseHUD();
   }
 
+  public triggerFlash() {
+    this.ui.triggerMergeFlash();
+  }
+
   public getCurrentTheme(): string {
     return this.currentTheme;
   }
 
   public updateGridMap() {
-    console.log('[Game] Calling updateGridMap');
     this.entityManager.updateGridMap();
   }
 
@@ -166,13 +188,11 @@ export class Game implements CollisionHandler, GameStateListener {
   // Managed by ComboManager
 
   constructor() {
-    console.log('[Game] Initializing...');
     this.profile = ProfileManager.loadProfile();
     this.currentTheme = this.profile.settings.theme;
     this.entityManager = new EntityManager();
     this.collisionSystem = new CollisionSystem();
     this.stateManager = new GameStateManager(this);
-    this.stateManager.setProfile(this.profile);
     this.worldSystem = new WorldSystem();
     this.effects = new EffectsManager();
     this.particles = new ParticleSystem();
@@ -185,7 +205,6 @@ export class Game implements CollisionHandler, GameStateListener {
     this.entityManager.initGrid();
     this.ui.setGame(this);
     this.renderer.setPowerSaver(this.profile.settings.powerSaver);
-    console.log('[Game] Core systems initialized');
     
     this.inputManager = new InputManager('gameCanvas', {
       findNode: (x, y) => this.findGameNodeAt(x, y),
@@ -194,6 +213,7 @@ export class Game implements CollisionHandler, GameStateListener {
       onDragEnd: (node) => this.interaction.handleDragEnd(node),
       logEvent: (msg) => this.logEvent(`[Input] ${msg}`),
     });
+
 
     window.addEventListener('themeChanged', (e: Event) => {
       const customEvent = e as CustomEvent<string>;
@@ -206,6 +226,7 @@ export class Game implements CollisionHandler, GameStateListener {
       }
       
       this.currentTheme = themeId;
+      this.renderer.setTheme(themeId);
       this.updateGameNodeColors();
     });
 
@@ -217,31 +238,41 @@ export class Game implements CollisionHandler, GameStateListener {
 
     window.addEventListener('orientationchange', () => this.handleOrientationChange());
     this.handleOrientationChange();
+    
+    // Auto-save when tab loses focus
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && this.isPlaying) this.saveCurrentSession();
+    });
 
-    console.log('[Game] Constructor complete');
+    // Quick restart on space/enter after game over
+    window.addEventListener('keydown', (e) => {
+      if ((e.key === ' ' || e.key === 'Enter') && this.stateManager.getCurrentState() === GameState.GAME_OVER) {
+        e.preventDefault();
+        this.restart();
+      }
+    });
     
     // Set initial UI state
     this.ui.handleStateChange(this.stateManager.getCurrentState());
   }
 
   public onStateChange(newState: GameState) {
-    console.log(`[Game] Handling state change to: ${newState}`);
-    
     if (newState === GameState.GAME_OVER || newState === GameState.WIN) {
       const results = this.stateManager.calculateResults(this.entityManager, this.scoreManager, this.startTime);
       this.ui.showResults(results, newState === GameState.WIN);
       
-      // Game End Haptics
+      // Game End Sounds & Haptics
       if (newState === GameState.WIN) {
+        this.playWinAudio();
         this.triggerHaptic([100, 100, 100, 100]); // Success fanfare
       } else {
+        this.playGameOverAudio();
         this.triggerHaptic(200); // Long sad pulse
       }
     }
     
     this.ui.handleStateChange(newState);
-    console.log(`[Game] UI updated for state: ${newState}`);
-
+    
     if (newState === GameState.UPGRADES) {
       const upgradeData = Object.values(ABILITIES).map(ability => {
         const level = this.profile.upgrades[ability.id] || 0;
@@ -258,6 +289,7 @@ export class Game implements CollisionHandler, GameStateListener {
     }
     
     switch (newState) {
+
 
       case GameState.PLAYING:
         this.isPlaying = true;
@@ -303,7 +335,8 @@ export class Game implements CollisionHandler, GameStateListener {
   }
 
   public restart() {
-    console.log('[Game] restart() called');
+    this.stop(); // Kill old rAF loop before starting a new one
+    this.collisionSystem.active = true;
     this.reset();
     this.initGame();
     this.startTime = performance.now();
@@ -345,6 +378,7 @@ export class Game implements CollisionHandler, GameStateListener {
 
   public stop() {
     this.isPlaying = false;
+    this.collisionSystem.active = false;
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
@@ -364,6 +398,10 @@ export class Game implements CollisionHandler, GameStateListener {
     this.isWin = false;
     this.comboManager.reset();
     this.worldSystem.supernovaTriggered = false;
+    this.timeSlowMultiplier = 1;
+    this.timeSlowUntil = 0;
+    this.physicsAccumulator = 0;
+    this.lastFrameTime = null;
   }
 
   private saveCurrentSession() {
@@ -373,6 +411,8 @@ export class Game implements CollisionHandler, GameStateListener {
   public hasTriggeredSupernova() { return this.worldSystem.supernovaTriggered; }
   public getScore() { return this.scoreManager.getScore(); }
   public getCombo() { return this.scoreManager.getCombo(); }
+  public getSettings() { return this.profile.settings; }
+  public getCurrentThemeId() { return this.currentTheme; }
   public getIsWin() { return this.isWin; }
 
   private findGameNodeAt(x: number, y: number): GameNode | null {
@@ -421,6 +461,11 @@ export class Game implements CollisionHandler, GameStateListener {
         this.comboManager.getIsFrenzy()
       );
     
+    // 3. Time slow decay
+    if (this.timeSlowUntil > 0 && performance.now() >= this.timeSlowUntil) {
+      this.timeSlowMultiplier = 1;
+    }
+
     // 4. Collision detection (uses updated gridMap and current positions)
     this.collisionSystem.checkAndResolveMerges(this.entityManager.allNodes, this.entityManager.gridMap, this);
     
@@ -514,6 +559,24 @@ export class Game implements CollisionHandler, GameStateListener {
       
       this.renderer.resetShake();
 
+      // Update in-game HUD during active play
+      if (state === GameState.PLAYING) {
+        const xpForCurrentLevel = Math.pow(this.profile.level - 1, 2) * 100;
+        const xpForNextLevel = Math.pow(this.profile.level, 2) * 100;
+        const xpProgress = (this.profile.xp - xpForCurrentLevel) / Math.max(1, xpForNextLevel - xpForCurrentLevel);
+        const maxNodeLevel = this.entityManager.getMaxNodeLevel();
+        this.ui.updateHUD(
+          this.scoreManager.getScore(),
+          this.scoreManager.getHighScore(),
+          this.scoreManager.getCombo(),
+          this.profile.level,
+          xpProgress,
+          maxNodeLevel,
+          this.comboManager.getIsFrenzy(),
+          this.scoreManager.getComboTimer(),
+          this.scoreManager.COMBO_TIMEOUT
+        );
+      }
       
     } catch (e) {
       console.error('[Game] CRITICAL CRASH:', e);

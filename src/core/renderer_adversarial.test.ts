@@ -2,11 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Game } from './Game';
 import { GameState } from '../assets/constants';
 import { Renderer } from '../ui/Renderer';
-import { ThreeRenderer } from '../ui/ThreeRenderer';
 
 // Minimal mocks for required dependencies
 vi.mock('../ui/UIManager');
-vi.mock('../ui/Input');
 vi.mock('../assets/constants', async () => {
   const actual = await vi.importActual('../assets/constants');
   return {
@@ -64,22 +62,6 @@ vi.mock('../ui/Renderer', () => {
   };
 });
 
-vi.mock('../ui/ThreeRenderer', () => {
-  return {
-    ThreeRenderer: class {
-      clear = vi.fn();
-      drawBackground = vi.fn();
-      drawGrid = vi.fn();
-      drawGameNode = vi.fn();
-      drawRipple = vi.fn();
-      drawParticles = vi.fn();
-      applyShake = vi.fn();
-      resetShake = vi.fn();
-      setPowerSaver = vi.fn();
-    }
-  };
-});
-
 describe('Attack D: The Rendering Desync', () => {
   let game: any;
 
@@ -101,14 +83,9 @@ describe('Attack D: The Rendering Desync', () => {
     const initialNodeCount = game.nodes.length;
     const initialNodePositions = game.nodes.map((n: any) => ({ x: n.x, y: n.y }));
 
-    // 2. Simulate rapid renderer switching
+    // 2. Simulate rapid renderer swapping (prove renderer is decoupled from logic)
     for (let i = 0; i < 10; i++) {
-      if (i % 2 === 0) {
-        game.renderer = new Renderer('gameCanvas');
-      } else {
-        game.renderer = new ThreeRenderer('gameCanvas');
-      }
-      
+      game.renderer = new Renderer('gameCanvas');
       game.update();
     }
 

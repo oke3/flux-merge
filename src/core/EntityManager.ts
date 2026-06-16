@@ -1,7 +1,4 @@
-/* 
- * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
- * Proprietary and confidential. Reverse engineering prohibited.
- */
+// SPDX-License-Identifier: Proprietary
 import { GameNode } from './GameNode';
 import { Game } from './Game';
 import { GAME_CONFIG, NodeType, THEMES, GameState } from '../assets/constants';
@@ -15,10 +12,16 @@ export class EntityManager {
   private availableCells: Set<string> = new Set();
   private lastSpawnTime: number = -GAME_CONFIG.BASE_SPAWN_INTERVAL;
   private spawnVariance: number = 0;
+  private maxNodeLevel: number = 1;
 
 
   public get allNodes(): GameNode[] {
     return this.nodes;
+  }
+
+  /** Returns the highest node level on the board (maintained incrementally). O(1). */
+  public getMaxNodeLevel(): number {
+    return this.maxNodeLevel;
   }
 
   public getNodeById(id: string): GameNode | null {
@@ -36,6 +39,9 @@ export class EntityManager {
 
   public addNode(node: GameNode) {
     this.nodes.push(node);
+    if (node.level > this.maxNodeLevel) {
+      this.maxNodeLevel = node.level;
+    }
     
     const key = `${node.gridX},${node.gridY}`;
     if (!this.gridMap[key]) this.gridMap[key] = [];
@@ -61,19 +67,20 @@ export class EntityManager {
     return bestNode;
   }
 
-  public calculateSpawnInterval(profile: UserProfile, score: number, hasNebula: boolean): number {
+  public calculateSpawnInterval(profile: UserProfile, score: number, hasNebula: boolean, timeSlowMultiplier: number = 1): number {
     const galaxyMultiplier = Math.max(0.5, 1 - (profile.galaxy - 1) * 0.1);
     const base = GAME_CONFIG.BASE_SPAWN_INTERVAL * galaxyMultiplier;
     const min = GAME_CONFIG.MIN_SPAWN_INTERVAL * galaxyMultiplier;
     
     const reduction = (score / GAME_CONFIG.MAX_DIFFICULTY_SCORE) * (base - min);
     let interval = Math.max(min, base - reduction);
-
+    
     if (hasNebula) {
       interval *= 1.5;
     }
-
-    console.log(`[SpawnDebug] Base: ${GAME_CONFIG.BASE_SPAWN_INTERVAL}, CalcInterval: ${interval.toFixed(2)}, Nebula: ${hasNebula}`);
+    
+    interval *= timeSlowMultiplier;
+    
     return interval;
   }
 
@@ -101,7 +108,6 @@ export class EntityManager {
     const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
     
     if (this.availableCells.size === 0) {
-      console.log(`[SpawnDebug] Grid Full! Available cells: 0`);
       return null;
     }
     
@@ -109,8 +115,6 @@ export class EntityManager {
     const cellsArray = Array.from(this.availableCells);
     const cellKey = cellsArray[Math.floor(Math.random() * cellsArray.length)];
     const [cx, cy] = cellKey.split(',').map(Number);
-    
-    console.log(`[SpawnDebug] Available cells: ${this.availableCells.size}`);
     
     const x = cx * cellSize + cellSize / 2;
     const y = cy * cellSize + cellSize / 2;
@@ -121,16 +125,22 @@ export class EntityManager {
     
     if (Math.random() < specialChance) {
       const rand = Math.random();
-      if (rand < 0.05) {
+      if (rand < 0.03) {
+        type = NodeType.LUMINOUS_NOVA;
+      } else if (rand < 0.08) {
         type = NodeType.BLACK_HOLE;
-      } else if (rand < 0.1) {
+      } else if (rand < 0.13) {
         type = NodeType.NEBULA;
-      } else if (rand < 0.2) {
+      } else if (rand < 0.18) {
+        type = NodeType.PRISM;
+      } else if (rand < 0.28) {
         type = NodeType.SUPERNOVA;
-      } else if (rand < 0.4) {
+      } else if (rand < 0.48) {
         type = NodeType.PULSAR;
-      } else if (rand < 0.7) {
-        type = NodeType.VOID;
+      } else if (rand < 0.63) {
+        type = NodeType.RESONANCE;
+      } else if (rand < 0.68) {
+        type = NodeType.TIME_CRYSTAL;
       } else {
         type = NodeType.STAR;
       }
@@ -142,7 +152,7 @@ export class EntityManager {
     
     return node;
   }
-
+  
   public updateAllColors(currentTheme: string) {
     this.nodes.forEach(node => this.updateNodeColor(node, currentTheme));
   }
@@ -162,6 +172,10 @@ export class EntityManager {
       node.color = '#FF4500';
     } else if (node.type === NodeType.PULSAR) {
       node.color = '#00FFCC';
+    } else if (node.type === NodeType.RESONANCE) {
+      node.color = '#FFAA00';
+    } else if (node.type === NodeType.TIME_CRYSTAL) {
+      node.color = '#00BFFF';
     } else if (node.type === NodeType.PRISM) {
       node.color = '#FF00FF';
     } else {
@@ -202,9 +216,15 @@ export class EntityManager {
   }
 
   public cleanup() {
+    let maxRemoved = false;
+
     for (let i = this.nodes.length - 1; i >= 0; i--) {
       const node = this.nodes[i];
       if (node.pendingRemoval) {
+        if (node.level >= this.maxNodeLevel) {
+          maxRemoved = true;
+        }
+
         // Remove from grid map
         const key = `${node.gridX},${node.gridY}`;
         const cell = this.gridMap[key];
@@ -220,6 +240,15 @@ export class EntityManager {
         this.nodes.splice(i, 1);
       }
     }
+
+    // Recompute max level only when the previous max-level node was removed (rare)
+    if (maxRemoved) {
+      let newMax = 1;
+      for (const n of this.nodes) {
+        if (n.level > newMax) newMax = n.level;
+      }
+      this.maxNodeLevel = newMax;
+    }
   }
 
   public updateGridMap() {
@@ -233,6 +262,7 @@ export class EntityManager {
 
   public reset() {
     this.nodes = [];
+    this.maxNodeLevel = 1;
     this.lastSpawnTime = performance.now() - GAME_CONFIG.BASE_SPAWN_INTERVAL;
     this.spawnVariance = 0;
   }
@@ -244,20 +274,17 @@ export class EntityManager {
     const interval = this.calculateSpawnInterval(
       game.profile, 
       game.scoreManager.getScore(), 
-      this.allNodes.some(n => n.type === NodeType.NEBULA)
+      this.allNodes.some(n => n.type === NodeType.NEBULA),
+      game.timeSlowMultiplier
     ) + this.spawnVariance;
-
+    
     const timeSinceLastSpawn = now - this.lastSpawnTime;
     
     if (timeSinceLastSpawn >= interval + this.spawnVariance) {
-      console.log(`[SpawnDebug] TIMER EXPIRED: ${timeSinceLastSpawn.toFixed(2)}ms >= ${ (interval + this.spawnVariance).toFixed(2) }ms. Spawning...`);
-      
       const node = this.spawnNode(game.profile, game.getCurrentTheme(), game.comboManager.getIsFrenzy());
       if (!node) {
-        console.log('[SpawnDebug] Grid Full - Game Over');
         game.transitionTo(GameState.GAME_OVER);
       } else {
-        console.log(`[SpawnDebug] Successfully spawned ${node.type} at ${node.gridX},${node.gridY}`);
         this.lastSpawnTime = now;
         this.spawnVariance = (Math.random() - 0.5) * (interval * GAME_CONFIG.SPAWN_VARIANCE_MULTIPLIER);
       }

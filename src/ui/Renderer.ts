@@ -1,13 +1,15 @@
 import { GameNode } from '../core/GameNode';
 import type { IRipple, IParticle } from '../core/types';
 import type { IRenderer } from './IRenderer';
-import { GAME_CONFIG, COLORS, NODE_LEVELS, NodeType, SPECIAL_NODE_SYMBOLS } from '../assets/constants';
+import { GAME_CONFIG, THEMES, GRID_VISUALS, NODE_LEVELS, NodeType, SPECIAL_NODE_SYMBOLS } from '../assets/constants';
 
 export class Renderer implements IRenderer {
   private canvas: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
   private visualCache: Map<string, HTMLCanvasElement> = new Map();
   private gridCache: HTMLCanvasElement | null = null;
+  private gridCacheNeedsRebuild: boolean = false;
+  private currentTheme: string = 'deepSpace';
   private backgroundCache: HTMLCanvasElement | null = null;
   private powerSaver: boolean = false;
 
@@ -46,6 +48,20 @@ export class Renderer implements IRenderer {
 
   public setPowerSaver(enabled: boolean) {
     this.powerSaver = enabled;
+  }
+
+  /** Update the theme used for grid colors and trigger a grid cache rebuild */
+  public setTheme(themeId: string) {
+    if (this.currentTheme !== themeId) {
+      this.currentTheme = themeId;
+      this.gridCacheNeedsRebuild = true;
+    }
+  }
+
+  /** Force the grid cache to rebuild on next drawGrid() call */
+  public invalidateGridCache() {
+    this.gridCache = null;
+    this.gridCacheNeedsRebuild = false;
   }
 
   public clear() {
@@ -236,6 +252,23 @@ export class Renderer implements IRenderer {
       octx.textAlign = 'center';
       octx.textBaseline = 'middle';
       octx.fillText(SPECIAL_NODE_SYMBOLS[NodeType.LUMINOUS_NOVA], centerX, centerY);
+    } else if (node.type === NodeType.RESONANCE) {
+      const resGlow = octx.createRadialGradient(centerX, centerY, baseRadius * 0.5, centerX, centerY, baseRadius * 2);
+      resGlow.addColorStop(0, 'rgba(255, 170, 0, 0.7)');
+      resGlow.addColorStop(1, 'transparent');
+      octx.fillStyle = resGlow;
+      octx.beginPath();
+      octx.arc(centerX, centerY, baseRadius * 2, 0, Math.PI * 2);
+      octx.fill();
+      octx.fillStyle = '#FFAA00';
+      octx.beginPath();
+      octx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
+      octx.fill();
+      octx.fillStyle = 'white';
+      octx.font = `bold ${baseRadius * 0.8}px Inter, system-ui, sans-serif`;
+      octx.textAlign = 'center';
+      octx.textBaseline = 'middle';
+      octx.fillText(SPECIAL_NODE_SYMBOLS[NodeType.RESONANCE], centerX, centerY);
     } else if (node.type === NodeType.PRISM) {
       const prismGlow = octx.createRadialGradient(centerX, centerY, baseRadius * 0.5, centerX, centerY, baseRadius * 2);
       prismGlow.addColorStop(0, 'rgba(255, 0, 255, 0.6)');
@@ -342,37 +375,89 @@ export class Renderer implements IRenderer {
     // Not implemented for 2D
   }
 
+  /** Parse an rgba string like 'rgba(r, g, b, a)' into { r, g, b, a } */
+  private parseRgba(color: string): { r: number; g: number; b: number; a: number } {
+    const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (!match) return { r: 255, g: 255, b: 255, a: 0.2 };
+    return {
+      r: parseInt(match[1], 10),
+      g: parseInt(match[2], 10),
+      b: parseInt(match[3], 10),
+      a: match[4] !== undefined ? parseFloat(match[4]) : 1,
+    };
+  }
+
+  /** Build an `rgba(r, g, b, a)` string from components */
+  private toRgba(r: number, g: number, b: number, a: number): string {
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+
   private createGridCache() {
     if (!this.canvas) return;
+    const dpr = window.devicePixelRatio || 1;
     const size = GAME_CONFIG.CANVAS_SIZE;
     const offscreen = document.createElement('canvas');
-    offscreen.width = size;
-    offscreen.height = size;
+    offscreen.width = size * dpr;
+    offscreen.height = size * dpr;
     const octx = offscreen.getContext('2d')!;
-    
+    octx.scale(dpr, dpr);
+
     const cellSize = size / GAME_CONFIG.GRID_SIZE;
-    octx.strokeStyle = COLORS.GLASS_BORDER;
-    octx.lineWidth = 1;
-    
+    const theme = THEMES[this.currentTheme] || THEMES.deepSpace;
+    const parsed = this.parseRgba(theme.glassBorder);
+    const baseColor = this.toRgba(parsed.r, parsed.g, parsed.b, parsed.a);
+    const glowColor = this.toRgba(parsed.r, parsed.g, parsed.b, GRID_VISUALS.LINE_GLOW_OPACITY);
+    const centerCol = Math.floor(GAME_CONFIG.GRID_SIZE / 2);
+    const centerRow = Math.floor(GAME_CONFIG.GRID_SIZE / 2);
+
+    // 1. Alternating cell background fills (checkerboard)
+    for (let row = 0; row < GAME_CONFIG.GRID_SIZE; row++) {
+      for (let col = 0; col < GAME_CONFIG.GRID_SIZE; col++) {
+        if ((row + col) % 2 === 1) continue; // only even cells get fill
+        const isCenter = row === centerRow && col === centerCol;
+        const alpha = isCenter ? GRID_VISUALS.CENTER_CELL_FILL_OPACITY : GRID_VISUALS.CELL_FILL_OPACITY;
+        octx.fillStyle = this.toRgba(parsed.r, parsed.g, parsed.b, alpha);
+        octx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+      }
+    }
+
+    // 2. Grid lines with glow effect
+    octx.save();
+    octx.shadowBlur = GRID_VISUALS.GLOW_BLUR;
+    octx.shadowColor = glowColor;
+
     for (let i = 0; i <= GAME_CONFIG.GRID_SIZE; i++) {
-      // Vertical lines
+      const isCenter = i === centerCol || i === centerRow;
+
+      // Vertical line
       octx.beginPath();
       octx.moveTo(i * cellSize, 0);
       octx.lineTo(i * cellSize, size);
+      octx.strokeStyle = isCenter
+        ? this.toRgba(parsed.r, parsed.g, parsed.b, parsed.a + 0.25)
+        : baseColor;
+      octx.lineWidth = isCenter ? GRID_VISUALS.CENTER_LINE_WIDTH : GRID_VISUALS.LINE_WIDTH;
       octx.stroke();
-      
-      // Horizontal lines
+
+      // Horizontal line
       octx.beginPath();
       octx.moveTo(0, i * cellSize);
       octx.lineTo(size, i * cellSize);
+      octx.strokeStyle = isCenter
+        ? this.toRgba(parsed.r, parsed.g, parsed.b, parsed.a + 0.25)
+        : baseColor;
+      octx.lineWidth = isCenter ? GRID_VISUALS.CENTER_LINE_WIDTH : GRID_VISUALS.LINE_WIDTH;
       octx.stroke();
     }
+
+    octx.restore();
     this.gridCache = offscreen;
+    this.gridCacheNeedsRebuild = false;
   }
 
   public drawGrid() {
     if (!this.ctx) return;
-    if (!this.gridCache) {
+    if (!this.gridCache || this.gridCacheNeedsRebuild) {
       this.createGridCache();
     }
     this.ctx.drawImage(this.gridCache!, 0, 0);
@@ -431,6 +516,20 @@ export class Renderer implements IRenderer {
       this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
       this.ctx.lineWidth = 3 * scale;
       this.ctx.stroke();
+      this.ctx.restore();
+    }
+
+    // Resonance Amplifier Buff Ring (shimmer on resonant nodes)
+    if (node.isResonant && node.type === NodeType.STANDARD) {
+      this.ctx.save();
+      const shimmerOpacity = 0.3 + 0.3 * Math.sin(performance.now() / 200);
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, node.radius * 1.3 * scale, 0, Math.PI * 2);
+      this.ctx.strokeStyle = `rgba(255, 170, 0, ${shimmerOpacity})`;
+      this.ctx.lineWidth = 2.5 * scale;
+      this.ctx.setLineDash([4, 4]);
+      this.ctx.stroke();
+      this.ctx.setLineDash([]);
       this.ctx.restore();
     }
  

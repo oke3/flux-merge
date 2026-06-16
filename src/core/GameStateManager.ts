@@ -5,41 +5,29 @@
 import { GameState } from '../assets/constants';
 import { EntityManager } from './EntityManager';
 import { ScoreManager } from './ScoreManager';
-import { ProfileManager, type UserProfile } from './ProfileManager';
-
+ 
 export interface GameStateListener {
   onStateChange(newState: GameState): void;
 }
-
+ 
 export class GameStateManager {
   private currentState: GameState = GameState.MENU;
   private listener: GameStateListener;
-  private profile?: UserProfile;
-
+ 
   constructor(listener: GameStateListener) {
     this.listener = listener;
   }
-
-  public setProfile(profile: UserProfile) {
-    this.profile = profile;
-  }
-
+ 
   public getCurrentState(): GameState {
     return this.currentState;
   }
-
+ 
   public transitionTo(newState: GameState) {
     if (this.currentState === newState) return;
-
-    if (newState === GameState.WIN && this.profile) {
-      ProfileManager.ascendGalaxy(this.profile);
-    }
-    
-    console.log(`[GameStateManager] Transitioning: ${this.currentState} -> ${newState}`);
     this.currentState = newState;
     this.listener.onStateChange(newState);
   }
-
+  
   public setInitialState(state: GameState) {
     this.currentState = state;
   }

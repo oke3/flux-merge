@@ -8,6 +8,8 @@ export const NodeType = {
   BLACK_HOLE: 'BLACK_HOLE',
   NEBULA: 'NEBULA',
   LUMINOUS_NOVA: 'LUMINOUS_NOVA',
+  RESONANCE: 'RESONANCE',
+  TIME_CRYSTAL: 'TIME_CRYSTAL',
   JUNK: 'JUNK',
 } as const;
 
@@ -17,6 +19,7 @@ export const GameState = {
   MENU: 'MENU',
   SETTINGS: 'SETTINGS',
   UPGRADES: 'UPGRADES',
+  ACHIEVEMENTS: 'ACHIEVEMENTS',
   PLAYING: 'PLAYING',
   PAUSED: 'PAUSED',
   GAME_OVER: 'GAME_OVER',
@@ -102,8 +105,8 @@ export const GAME_CONFIG = {
   TICK_RATE: 60,
   VOID_CONSUMPTION_RADIUS: 80,
   SPECIAL_NODE_CHANCE: 0.1, // 10% chance to spawn a special node
-  BASE_SPAWN_INTERVAL: 1200,
-  MIN_SPAWN_INTERVAL: 300,
+  BASE_SPAWN_INTERVAL: 1500,
+  MIN_SPAWN_INTERVAL: 500,
   MAX_DIFFICULTY_SCORE: 1000,
   GRAVITY_FLUX_INTERVAL: 60000,
   // Audit Additions
@@ -119,15 +122,25 @@ export const GAME_CONFIG = {
   PHYSICS_REPULSION_DISTANCE: 300,
   PHYSICS_REPULSION_FORCE_MULT: 20,
   MAX_UPDATES_PER_FRAME: 5,
+  RESONANCE_CONFIG: {
+    PULSE_INTERVAL: 4000,
+    RESONANCE_DURATION: 3000,
+    PULSE_RADIUS: 150,
+    FRENZY_RADIUS_MULTIPLIER: 2.0,
+  },
   NOVA_CONFIG: {
     PULSE_INTERVAL: 4000, // Pulse every 4 seconds
     REPULSION_RADIUS: 250,
     REPULSION_FORCE: 15,
-    SWELL_DURATION: 1500, // 1.5s build up
-    SNAP_DURATION: 200,   // 0.2s snap
+     SWELL_DURATION: 800, // 0.8s build up
+     SNAP_DURATION: 100,   // 0.1s snap
+
     REFRACTION_CHANCE: 1.0, // Always counter if in radius
     SHATTER_COUNT: 3,      // Split into 3 shards
   },
+  TIME_CRYSTAL_SLOW_DURATION: 5000,
+  TIME_CRYSTAL_SLOW_FACTOR: 2,
+  TIME_CRYSTAL_SPAWN_WEIGHT: 0.03,
 };
 
 export interface NodeLevelInfo {
@@ -207,6 +220,23 @@ export const SPECIAL_NODE_SYMBOLS: Record<string, string> = {
   [NodeType.PRISM]: '⬡',
   [NodeType.NEBULA]: '☁',
   [NodeType.LUMINOUS_NOVA]: '✺',
+  [NodeType.RESONANCE]: '✧',
+  [NodeType.TIME_CRYSTAL]: '◇',
+};
+
+export const GRID_VISUALS = {
+  /** Base grid line width in virtual pixels */
+  LINE_WIDTH: 1.5,
+  /** Center row/column line width (thicker for visual anchor) */
+  CENTER_LINE_WIDTH: 2.5,
+  /** Glow blur radius in virtual pixels */
+  GLOW_BLUR: 5,
+  /** How bright the glow is (overlay) */
+  LINE_GLOW_OPACITY: 0.2,
+  /** Cell fill for alternating checkerboard cells */
+  CELL_FILL_OPACITY: 0.04,
+  /** Center cell fill is slightly brighter */
+  CENTER_CELL_FILL_OPACITY: 0.08,
 };
 
 export const COLORS = {

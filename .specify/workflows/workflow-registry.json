@@ -7,7 +7,15 @@
       "description": "Runs specify \u2192 plan \u2192 tasks \u2192 implement with review gates",
       "source": "bundled",
       "installed_at": "2026-05-24T02:46:42.822722+00:00",
-      "updated_at": "2026-05-24T02:46:42.822737+00:00"
+      "updated_at": "2026-05-26T23:15:00.000000+00:00"
+    },
+    "opencode-auto-build": {
+      "name": "OpenCode Auto-Build",
+      "version": "1.0.0",
+      "description": "Intelligent auto-build: say what you want, intent is auto-detected, correct SDD steps are routed automatically",
+      "source": "project",
+      "installed_at": "2026-05-26T23:15:00.000000+00:00",
+      "updated_at": "2026-05-26T23:15:00.000000+00:00"
     }
   }
 }

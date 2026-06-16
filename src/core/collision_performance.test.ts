@@ -5,7 +5,6 @@ import { GameState, NodeType } from '../assets/constants';
 
 vi.mock('../ui/UIManager');
 vi.mock('../ui/Renderer');
-vi.mock('../ui/Input');
 vi.mock('../core/AudioManager');
 vi.mock('../core/ScoreManager', () => ({
   ScoreManager: class {

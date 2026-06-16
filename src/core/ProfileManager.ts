@@ -45,16 +45,13 @@ export class ProfileManager {
   }
 
   public static saveProfile(profile: UserProfile) {
-    localStorage.setItem(this.PROFILE_KEY, JSON.stringify(profile));
+    try { localStorage.setItem(this.PROFILE_KEY, JSON.stringify(profile)); }
+    catch (e) { console.warn('[ProfileManager] Failed to save profile:', e); }
   }
 
   public static resetProfile() {
     localStorage.removeItem(this.PROFILE_KEY);
     return this.defaultProfile();
-  }
-
-  public static deleteProfile() {
-    localStorage.removeItem(this.PROFILE_KEY);
   }
 
   public static unlockTheme(profile: UserProfile, themeId: string) {

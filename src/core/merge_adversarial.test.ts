@@ -6,7 +6,6 @@ import { GameState } from '../assets/constants';
 // Minimal mocks for required dependencies
 vi.mock('../ui/UIManager');
 vi.mock('../ui/Renderer');
-vi.mock('../ui/Input');
 vi.mock('../assets/constants', async () => {
   const actual = await vi.importActual('../assets/constants');
   return {

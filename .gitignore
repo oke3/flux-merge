@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .aider*
+
+# Environment variables (API keys, secrets)
+.env
+.env.*

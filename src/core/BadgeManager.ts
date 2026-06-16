@@ -1,6 +1,4 @@
-/* 
- * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
- */
+// SPDX-License-Identifier: Proprietary
 import { ProfileManager } from './ProfileManager';
 
 import { Game } from './Game';

@@ -27,8 +27,11 @@ describe('CollisionSystem Stability', () => {
       getCurrentTheme: () => 'deepSpace',
       updateGridMap: vi.fn(),
       getGridMap: vi.fn(),
+      triggerHaptic: vi.fn(),
       logEvent: vi.fn(),
       pulseHUD: vi.fn(),
+      triggerFlash: vi.fn(),
+      triggerTimeSlow: vi.fn(),
     };
 
     // 4 nodes of level 1 at the same position

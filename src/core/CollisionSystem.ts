@@ -1,7 +1,4 @@
-/* 
- * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
- * Proprietary and confidential. Reverse engineering prohibited.
- */
+// SPDX-License-Identifier: Proprietary
 import { GameNode } from './GameNode';
 import { LuminousNova } from './LuminousNova';
 import { GAME_CONFIG, NodeType } from '../assets/constants';
@@ -16,6 +13,7 @@ export interface CollisionHandler {
   spawnBurst(x: number, y: number, color: string, count: number): void;
   addRipple(ripple: Ripple): void;
   triggerShake(intensity: number, duration?: number): void;
+  triggerHaptic(pattern: number | number[]): void;
   spawnNode(): void;
   transitionToWin(): void;
   checkAchievements(): void;
@@ -27,9 +25,13 @@ export interface CollisionHandler {
   getGridMap(): Record<string, GameNode[]>;
   logEvent(message: string): void;
   pulseHUD(): void;
+  triggerFlash(): void;
+  triggerTimeSlow(duration: number, factor: number): void;
 }
 
 export class CollisionSystem {
+  /** Set false when game stops to prevent stale setTimeout callbacks */
+  public active: boolean = true;
   private readonly MAX_MERGES_PER_FRAME = 50;
 
   public checkAndResolveMerges(nodes: GameNode[], gridMap: Record<string, GameNode[]>, handler: CollisionHandler) {
@@ -37,6 +39,12 @@ export class CollisionSystem {
 
     const snapshot = new Set(nodes);
     let totalMergesThisFrame = 0;
+
+    // Build index map once (O(N)) instead of calling indexOf (O(N)) inside the merge loop
+    const indexMap = new Map<GameNode, number>();
+    for (let i = 0; i < nodes.length; i++) {
+      indexMap.set(nodes[i], i);
+    }
 
     for (const a of snapshot) {
       if (totalMergesThisFrame >= this.MAX_MERGES_PER_FRAME) break;
@@ -53,14 +61,14 @@ export class CollisionSystem {
             if (a === b || b.pendingRemoval || !snapshot.has(b)) continue;
 
             const canMerge = (a.level === b.level) || (a.type === NodeType.STAR) || (b.type === NodeType.STAR);
-            const combinedRadius = a.radius * a.scale + b.radius * b.scale;
+            const combinedRadius = (a.radius + b.radius) * 1.1;
             if (canMerge && Physics.getDistanceSq(a.x, a.y, b.x, b.y) < combinedRadius * combinedRadius) {
               if (a.type === NodeType.VOID || b.type === NodeType.VOID || a.type === NodeType.BLACK_HOLE || b.type === NodeType.BLACK_HOLE || a.type === NodeType.JUNK || b.type === NodeType.JUNK) continue;
               
-              const indexA = nodes.indexOf(a);
-              const indexB = nodes.indexOf(b);
+              const indexA = indexMap.get(a);
+              const indexB = indexMap.get(b);
               
-              if (indexA !== -1 && indexB !== -1) {
+              if (indexA !== undefined && indexB !== undefined) {
                 this.mergeGameNodes(nodes, indexA, indexB, handler);
                 totalMergesThisFrame++;
                 break; 
@@ -78,6 +86,19 @@ export class CollisionSystem {
     const a = nodes[indexA];
     const b = nodes[indexB];
     
+    if (a.type === NodeType.TIME_CRYSTAL && b.type === NodeType.TIME_CRYSTAL) {
+      const cx = (a.x + b.x) / 2;
+      const cy = (a.y + b.y) / 2;
+      handler.addRipple(new Ripple(cx, cy, '#00BFFF', GAME_CONFIG.PULSE_RADIUS * 1.5));
+      handler.spawnBurst(cx, cy, '#00BFFF', 40);
+      handler.spawnBurst(cx, cy, '#FFFFFF', 20);
+      handler.playMergeSound(1);
+      handler.triggerTimeSlow(GAME_CONFIG.TIME_CRYSTAL_SLOW_DURATION, GAME_CONFIG.TIME_CRYSTAL_SLOW_FACTOR);
+      a.pendingRemoval = true;
+      b.pendingRemoval = true;
+      return;
+    }
+
     if (a.type === NodeType.PRISM || b.type === NodeType.PRISM) {
       this.handlePrismSplit(nodes, a, b, handler);
       a.pendingRemoval = true;
@@ -91,7 +112,9 @@ export class CollisionSystem {
     // But here we are handling MERGES. 
     // Void nodes are excluded from merges in line 53.
     
-    const newLevel = Math.max(a.level, b.level) + 1;
+    // Resonance Amplifier: when two resonant standard nodes merge, skip a level
+    const isResonantMerge = a.type === NodeType.STANDARD && b.type === NodeType.STANDARD && a.isResonant && b.isResonant;
+    const newLevel = isResonantMerge ? Math.max(a.level, b.level) + 2 : Math.max(a.level, b.level) + 1;
 
     handler.incrementCombo();
 
@@ -115,13 +138,19 @@ export class CollisionSystem {
     const rippleRadius = newLevel >= 3 ? GAME_CONFIG.PULSE_RADIUS * 1.5 : GAME_CONFIG.PULSE_RADIUS;
     handler.addRipple(new Ripple(newX, newY, mergedGameNode.color, rippleRadius));
     handler.spawnBurst(newX, newY, mergedGameNode.color, 20 + (newLevel * 10));
+    if (newLevel >= 2) {
+      // Delayed sparkle trail — tiny white particles that linger
+      setTimeout(() => { if (this.active) handler.spawnBurst(newX, newY, '#FFFFFF', 8 + newLevel * 3); }, 120);
+    }
     if (newLevel >= 3) {
-      handler.spawnBurst(newX, newY, '#FFFFFF', 15); // Golden white highlight burst
+      handler.spawnBurst(newX, newY, '#FFFFFF', 15); // White highlight burst
+      handler.triggerFlash();
     }
     if (newLevel >= 4) {
       handler.spawnBurst(newX, newY, '#FFD700', 25); // Gold supernova burst
     }
-    handler.triggerShake(newLevel * 2.5);
+    // Exponential shake — level 1: subtle, level 4: screen-rattling
+    handler.triggerShake(newLevel * newLevel * 1.5, 150 + newLevel * 50);
     handler.playMergeSound(newLevel);
     
     if ('vibrate' in navigator) {
@@ -129,8 +158,7 @@ export class CollisionSystem {
     }
 
     handler.addScore(mergedGameNode.scoreValue);
-    handler.logEvent(`MERGE: Lvl ${a.level} → ${mergedGameNode.level}`);
-
+    
     if (mergedGameNode.level >= 3) {
       handler.pulseHUD();
     }
@@ -233,30 +261,35 @@ export class CollisionSystem {
         }
       }
 
-      // 2. Refraction Logic (Void Counter)
-      // We check if any Void node is trying to consume a node that is inside the Nova's range.
+      // 2. Refraction Logic (Void Counter) — use gridMap instead of full nodes scan
+      // We check if any Void node is trying to consume a node inside the Nova's protection range.
       for (const voidNode of voids) {
         const voidRadius = NodeType.VOID === voidNode.type ? GAME_CONFIG.VOID_CONSUMPTION_RADIUS : GAME_CONFIG.VOID_CONSUMPTION_RADIUS * 1.5;
         const voidRadiusSq = voidRadius * voidRadius;
 
-        for (const node of nodes) {
+        // Only check nodes near the void instead of all nodes
+        const nearbyNodes = Physics.getNodesInRadius(voidNode.x, voidNode.y, voidRadius, gridMap);
+        for (const node of nearbyNodes) {
           if (node === voidNode || node === nova) continue;
 
           const distToVoidSq = Physics.getDistanceSq(voidNode.x, voidNode.y, node.x, node.y);
           if (distToVoidSq < voidRadiusSq) {
             // Void wants to eat this node. Is the Nova protecting it?
             const distToNovaSq = Physics.getDistanceSq(nova.x, nova.y, node.x, node.y);
-               if (distToNovaSq < GAME_CONFIG.NOVA_CONFIG.REPULSION_RADIUS * GAME_CONFIG.NOVA_CONFIG.REPULSION_RADIUS) {
-                 // REFRACTION TRIGGERED!
-                 if (node.pendingRemoval) {
-                   node.pendingRemoval = false; // Save the node!
-                   handler.logEvent(`REFRACTION: Node Saved!`);
-                   this.handleRefractionShatter(node, handler);
+                if (distToNovaSq < GAME_CONFIG.NOVA_CONFIG.REPULSION_RADIUS * GAME_CONFIG.NOVA_CONFIG.REPULSION_RADIUS) {
+                  // REFRACTION TRIGGERED!
+                  if (node.pendingRemoval) {
+                    node.pendingRemoval = false; // Save the node!
+                    this.handleRefractionShatter(node, handler);
                    
                    // Visuals for the refraction burst
 
-                handler.spawnBurst(node.x, node.y, '#FFFFFF', 40);
-                handler.addRipple(new Ripple(node.x, node.y, '#00FFFF', GAME_CONFIG.PULSE_RADIUS * 0.5));
+                handler.spawnBurst(node.x, node.y, '#FFFFFF', 50);
+                handler.spawnBurst(node.x, node.y, '#00FFFF', 30);
+                handler.addRipple(new Ripple(node.x, node.y, '#00FFFF', GAME_CONFIG.PULSE_RADIUS * 0.6));
+                handler.addRipple(new Ripple(node.x, node.y, '#FFFFFF', GAME_CONFIG.PULSE_RADIUS * 0.3));
+                handler.triggerFlash();
+                handler.triggerShake(20);
                 handler.playMergeSound(1); // Crystalline chime
               }
             }

@@ -24,3 +24,19 @@ export interface IParticle {
   size: number;
   isDead: boolean;
 }
+
+export interface GameResults {
+  score: number;
+  maxLevel: number;
+  duration: number;
+  xpEarned: number;
+}
+
+export interface UpgradeData {
+  id: string;
+  name: string;
+  description: string;
+  cost: number;
+  level: number;
+  maxLevel: number;
+}

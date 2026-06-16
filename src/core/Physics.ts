@@ -1,7 +1,4 @@
-/* 
- * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
- * Proprietary and confidential. Reverse engineering prohibited.
- */
+// SPDX-License-Identifier: Proprietary
 import { GameNode } from '../core/GameNode';
 import { GAME_CONFIG } from '../assets/constants';
 import { ProfileManager } from './ProfileManager';
@@ -108,5 +105,37 @@ export class Physics {
       node.targetX += (dx / distance) * force * GAME_CONFIG.PHYSICS_REPULSION_FORCE_MULT;
       node.targetY += (dy / distance) * force * GAME_CONFIG.PHYSICS_REPULSION_FORCE_MULT;
     }
+  }
+
+  /**
+   * Returns all nodes within a given radius of (cx, cy) using gridMap spatial lookup.
+   * O(G) where G = grid cells in the radius area, instead of O(N) full array scan.
+   */
+  public static getNodesInRadius(
+    cx: number, cy: number,
+    radius: number,
+    gridMap: Record<string, GameNode[]>
+  ): GameNode[] {
+    const cellSize = GAME_CONFIG.CANVAS_SIZE / GAME_CONFIG.GRID_SIZE;
+    const gridRange = Math.ceil(radius / cellSize);
+    const centerGX = Math.floor(cx / cellSize);
+    const centerGY = Math.floor(cy / cellSize);
+    const radiusSq = radius * radius;
+    const result: GameNode[] = [];
+
+    for (let dx = -gridRange; dx <= gridRange; dx++) {
+      for (let dy = -gridRange; dy <= gridRange; dy++) {
+        const cellKey = `${centerGX + dx},${centerGY + dy}`;
+        const cellNodes = gridMap[cellKey];
+        if (!cellNodes) continue;
+        for (const node of cellNodes) {
+          const distSq = (node.x - cx) ** 2 + (node.y - cy) ** 2;
+          if (distSq <= radiusSq) {
+            result.push(node);
+          }
+        }
+      }
+    }
+    return result;
   }
 }

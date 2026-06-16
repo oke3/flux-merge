@@ -1,0 +1,66 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    ".opencode/kb/architecture.md",
+    ".opencode/kb/decisions.md",
+    ".opencode/kb/patterns.md"
+  ],
+  "command": {
+    "build": {
+      "description": "Universal entry point. Say what you want in plain English — I detect intent and run the right workflow automatically.",
+      "template": "You are the Flux Merge intelligent build orchestrator. The user said: \"$ARGUMENTS\"\n\nFirst, classify their intent by running: node .specify/scripts/opencode/intent-router.js \"$ARGUMENTS\"\n\nBased on the classification, execute the appropriate workflow. Do NOT ask the user what they want — analyze their request yourself and JUST DO IT.\n\n## Intent → Workflow Mapping\n\n### Full Feature (full-cycle)\nIf they want to add/create/build a new thing, run the ENTIRE SDD cycle:\n1. First run `speckit.specify` with their request to generate a spec\n2. After the spec is generated, present it for brief review, then run `speckit.plan`\n3. After the plan, run `speckit.tasks`\n4. After tasks, run `speckit.implement`\n5. After implement, run `speckit.checklist`\n6. Finally run `speckit.analyze`\n\n### Bug Fix (fix)\nIf they want to fix something:\n1. Run `speckit.plan` with the bug description\n2. Run `speckit.tasks`\n3. Run `speckit.implement`\n4. Run `speckit.analyze`\n\n### Checklist Only (checklist)\nIf they want a checklist or QA review:\n- Run `speckit.checklist`\n\n### Analysis Only (analyze)\nIf they want status or analysis:\n- Run `speckit.analyze`\n\n### Clarification (clarify)\nIf they need something clarified:\n- Run `speckit.clarify`\n\n### Specification (specify)\nIf they just want a spec written:\n- Run `speckit.specify`\n\n## Execution Rules\n- Run each step SEQUENTIALLY. Complete one before starting the next.\n- Present outputs clearly at each stage.\n- For full-cycle and fix workflows, pause at review gates and ask for approval before proceeding.\n- If confidence is low (< 0.5), run `speckit.clarify` first to narrow down intent.\n- Create files in the appropriate .specify/ subdirectories (specs/, plans/, tasks/).\n- At the end, summarize what was done and where the artifacts are.\n- NEVER ask \"what do you want me to do?\" — they already told you. DO IT.",
+      "agent": "orchestrator"
+    },
+    "flow": {
+      "description": "Full SDD Cycle: specify → plan → tasks → implement → checklist → analyze (with review gates)",
+      "template": "Run the complete SpecKit Full SDD Cycle for: $ARGUMENTS\n\nFollow these steps SEQUENTIALLY. Complete each step before moving to the next:\n\n1. **speckit.specify** — Generate a specification first.\n   - Run `node .specify/scripts/opencode/intent-router.js \"$ARGUMENTS\"` to extract keywords\n   - Create the spec in `.specify/specs/`\n   - Present a summary and wait for approval\n\n2. **speckit.plan** — Once the spec is approved, create an implementation plan.\n   - Save plan to `.specify/plans/`\n   - Present and wait for approval\n\n3. **speckit.tasks** — Decompose plan into individual tasks.\n   - Save tasks to `.specify/tasks/`\n\n4. **speckit.implement** — Execute the tasks one by one.\n   - Update task statuses as you go\n\n5. **speckit.checklist** — Verify the implementation against the spec.\n\n6. **speckit.analyze** — Final review of what was built vs what was specified.",
+      "agent": "orchestrator"
+    },
+    "speckit.specify": {
+      "description": "Generate a specification using the SpecKit SDD workflow",
+      "template": "Generate a formal specification from this description: $ARGUMENTS. Follow the SpecKit SDD workflow. Use the spec template from .specify/templates/spec-template.md if available. Output the spec to .specify/specs/. Include: purpose, requirements, technical approach, acceptance criteria.",
+      "agent": "product-strategist"
+    },
+    "speckit.plan": {
+      "description": "Create an implementation plan from a specification",
+      "template": "Create an implementation plan for: $ARGUMENTS. Decompose into actionable steps with ordering, dependencies, and effort estimates. Output to .specify/plans/.",
+      "agent": "orchestrator"
+    },
+    "speckit.tasks": {
+      "description": "Break a plan into individual tasks",
+      "template": "Decompose this plan into individual tracked tasks: $ARGUMENTS. Each task needs: ID, description, dependencies, acceptance criteria, estimated effort. Output to .specify/tasks/.",
+      "agent": "orchestrator"
+    },
+    "speckit.implement": {
+      "description": "Execute implementation from a task list",
+      "template": "Execute the implementation for: $ARGUMENTS. Work through the tasks systematically, implementing code changes in src/. Update task statuses as you go.",
+      "agent": "build"
+    },
+    "speckit.checklist": {
+      "description": "Generate or verify a checklist against a spec",
+      "template": "Generate and verify a checklist for: $ARGUMENTS. Check each requirement against the implementation. Output annotated checklist showing pass/fail for each item.",
+      "agent": "qa-specialist"
+    },
+    "speckit.analyze": {
+      "description": "Analyze implementation results against the spec",
+      "template": "Analyze the implementation for: $ARGUMENTS. Compare what was built against the specification. Identify gaps, quality issues, and completeness. Output findings.",
+      "agent": "qa-specialist"
+    },
+    "speckit.clarify": {
+      "description": "Clarify ambiguous requirements",
+      "template": "Clarify the requirements for: $ARGUMENTS. Identify ambiguities, ask targeted questions, and produce a clarified specification section.",
+      "agent": "product-strategist"
+    },
+    "speckit.constitution": {
+      "description": "Generate or update project constitution",
+      "template": "Generate or update the project constitution for: $ARGUMENTS. Define foundational agreements, architectural patterns, and quality standards.",
+      "agent": "orchestrator"
+    },
+    "speckit.taskstoissues": {
+      "description": "Sync tasks to GitHub issues",
+      "template": "Synchronize task definitions from .specify/tasks/ with GitHub issues. Create or update issues for each task. For: $ARGUMENTS",
+      "agent": "orchestrator"
+    }
+  }
+}

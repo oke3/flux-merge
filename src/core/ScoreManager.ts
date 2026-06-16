@@ -15,14 +15,13 @@ export class ScoreManager {
   private highScore: number = 0;
   private comboCount: number = 1;
   private comboTimer: number = 0;
-  private readonly COMBO_TIMEOUT = 1500;
+  public readonly COMBO_TIMEOUT = 1800;
   public isFever: boolean = false;
   private ui: UIManager;
 
   constructor(ui: UIManager) {
     this.ui = ui;
     this.highScore = parseInt(localStorage.getItem('flux-merge-highscore') || '0');
-    this.ui.updateHighScore(this.highScore);
   }
 
   public getScore(): number {
@@ -61,14 +60,13 @@ export class ScoreManager {
     const multiplier = this.getMultiplier();
     const finalPoints = points * multiplier;
     this.score += finalPoints;
-    this.ui.updateScore(this.score);
 
     if (this.score > this.highScore) {
       this.highScore = this.score;
-      this.ui.updateHighScore(this.highScore);
-      localStorage.setItem('flux-merge-highscore', this.highScore.toString());
+      try { localStorage.setItem('flux-merge-highscore', this.highScore.toString()); }
+      catch (e) { console.warn('[ScoreManager] Failed to save high score:', e); }
     }
-
+    
     // Process XP Gain
     const xpGain = ProfileManager.calculateXPGain(finalPoints, hasNebula);
     const { levelUp, newLevel } = ProfileManager.addXP(profile, xpGain);
@@ -94,15 +92,14 @@ export class ScoreManager {
 
   public resetHighScore(): void {
     this.highScore = 0;
-    this.ui.updateHighScore(0);
-    localStorage.setItem('flux-merge-highscore', '0');
+    try { localStorage.setItem('flux-merge-highscore', '0'); }
+    catch (e) { console.warn('[ScoreManager] Failed to reset high score:', e); }
   }
 
   public reset(): void {
     this.score = 0;
     this.comboCount = 1;
     this.comboTimer = 0;
-    this.ui.updateScore(0);
     this.ui.updateCombo(1);
   }
 }

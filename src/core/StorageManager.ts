@@ -1,6 +1,4 @@
-/* 
- * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
- */
+// SPDX-License-Identifier: Proprietary
 import { EntityManager } from './EntityManager';
 import { ScoreManager } from './ScoreManager';
 import { z, GameSessionSchema, type GameSessionData } from './schemas';
@@ -15,7 +13,8 @@ export class StorageManager {
     history.push(session);
     // Keep only top 10 games
     const sorted = history.sort((a, b) => b.score - a.score).slice(0, 10);
-    localStorage.setItem(this.HISTORY_KEY, JSON.stringify(sorted));
+    try { localStorage.setItem(this.HISTORY_KEY, JSON.stringify(sorted)); }
+    catch (e) { console.warn('[StorageManager] Failed to save session history:', e); }
   }
 
   public static saveCurrentSession(entityManager: EntityManager, scoreManager: ScoreManager, startTime: number) {

@@ -1,7 +1,4 @@
-/* 
- * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
- * Proprietary and confidential. Reverse engineering prohibited.
- */
+// SPDX-License-Identifier: Proprietary
 import { ScoreManager } from './ScoreManager';
 import { UIManager } from '../ui/UIManager';
 import { AudioManager } from './AudioManager';

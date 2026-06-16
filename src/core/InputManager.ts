@@ -1,7 +1,4 @@
-/* 
- * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
- * Proprietary and confidential. Reverse engineering prohibited.
- */
+// SPDX-License-Identifier: Proprietary
 import { GameNode } from './GameNode';
 import { GAME_CONFIG } from '../assets/constants';
 
@@ -38,13 +35,12 @@ export class InputManager {
     snappedY: 0,
     snappedGridX: 0,
     snappedGridY: 0,
-    debugPointer: true,
-    debugHitboxes: true,
+    debugPointer: false,
+    debugHitboxes: false,
   };
 
   private canvas: HTMLCanvasElement;
   private cellSize: number;
-  private config: InputConfig;
   private findNode: (x: number, y: number) => GameNode | null;
   private onDragStart: (node: GameNode) => void;
   private onDragMove: (node: GameNode, x: number, y: number) => void;
@@ -59,7 +55,6 @@ export class InputManager {
     this.onDragStart = config.onDragStart;
     this.onDragMove = config.onDragMove;
     this.onDragEnd = config.onDragEnd;
-    this.config = config;
     
     this.initListeners();
   }
@@ -69,11 +64,6 @@ export class InputManager {
     this.canvas.addEventListener('pointerdown', this.handlePointerDown);
     this.canvas.addEventListener('pointermove', this.handlePointerMove);
     window.addEventListener('pointerup', this.handlePointerUp);
-  }
-
-  private log(message: string) {
-    console.log(`[InputManager] ${message}`);
-    this.config.logEvent?.(message);
   }
 
   private getCanvasCoordinates(clientX: number, clientY: number) {
@@ -89,11 +79,6 @@ export class InputManager {
     
     const x = (clientX - rect.left) * scaleX;
     const y = (clientY - rect.top) * scaleY;
-
-    // On-screen coordinate debugging
-    if (this.state.debugPointer) {
-      this.log(`Coord: [${x.toFixed(1)}, ${y.toFixed(1)}] (Client: ${clientX},${clientY} | Rect: ${rect.left.toFixed(1)},${rect.top.toFixed(1)} | Scale: ${scaleX.toFixed(2)})`);
-    }
 
     return { x, y };
   }
@@ -111,13 +96,11 @@ export class InputManager {
   }
 
   private handlePointerDown = (e: PointerEvent) => {
-    this.log(`PointerDown: ${e.clientX},${e.clientY}`);
     const { x, y } = this.getCanvasCoordinates(e.clientX, e.clientY);
     this.updateInputState(x, y);
     
     const node = this.findNode(x, y);
     if (node) {
-      this.log(`Node found: ${node.id}`);
       this.draggedNode = node;
       this.state.isDragging = true;
       this.state.draggedNodeId = node.id;
@@ -125,8 +108,6 @@ export class InputManager {
       
       // Capture the pointer to continue receiving events even if the finger leaves the canvas
       this.canvas.setPointerCapture(e.pointerId);
-    } else {
-      this.log(`No node at ${x.toFixed(1)},${y.toFixed(1)}`);
     }
   };
 

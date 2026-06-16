@@ -21,19 +21,20 @@ The project uses a **Decoupled Service Architecture** to ensure stability and el
 - **`InteractionManager`**: Decouples user interaction logic from the core entity lifecycle.
 
 ### UI & Rendering Layer
-- **`Renderer` / `ThreeRenderer`**: Wraps Three.js to handle the 3D cosmic environment, lighting, and materials.
+- **`Renderer`** (primary): 2D Canvas renderer with cached node visuals, background parallax, ripple effects, and particle rendering. Handles DPI-aware resolution scaling and power-saver mode.
+- **`ThreeRenderer`** (experimental/dormant): Three.js / WebGL renderer implementing the same `IRenderer` interface. Not wired into the main game loop; exists as an alternative rendering path.
 - **`UIManager`**: Manages the Glassmorphism UI, score displays, and player profiles.
 - **`Input`**: Decoupled input handling for cross-platform fluidity.
 
 ## 🛠️ Technical Stack
 - **Language**: TypeScript (Strict Mode)
-- **Graphics**: Three.js / WebGL
+- **Graphics**: 2D Canvas (CanvasRenderingContext2D); Three.js available as an experimental alternative
 - **Build System**: Vite
 - **Testing**: Vitest (via Zero-Regression Framework). Uses a **Co-located Testing Pattern** where `.test.ts` files reside alongside their source files for immediate accessibility.
 
 ## 📌 Critical Paths
 - **Merge Loop**: `EntityManager` $\rightarrow$ `CollisionSystem` $\rightarrow$ `Game` (Effects) $\rightarrow$ `ScoreManager`.
 - **State Transition**: `GameStateManager` $\rightarrow$ `UIManager` / `AudioManager`.
-- **Sensory Loop**: `WorldSystem` $\rightarrow$ `ThreeRenderer` $\rightarrow$ `AudioManager` $\rightarrow$ `AudioEngine`.
+- **Sensory Loop**: `WorldSystem` $\rightarrow$ `Renderer` $\rightarrow$ `AudioManager` $\rightarrow$ `AudioEngine`.
     - **`AudioManager` (High-Level)**: Orchestrates semantic audio triggers, manages user settings (mute), and maps game events to audio sounds.
     - **`AudioEngine` (Low-Level)**: Manages the `AudioContext`, oscillator generation, and raw frequency modulation.

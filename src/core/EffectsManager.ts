@@ -1,6 +1,4 @@
-/* 
- * Copyright (c) 2026 Ground Zero LLC. All rights reserved.
- */
+// SPDX-License-Identifier: Proprietary
 import { Ripple } from './Ripple';
 
 export class EffectsManager {

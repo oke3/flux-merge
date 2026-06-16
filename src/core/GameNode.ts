@@ -19,6 +19,8 @@ export class GameNode {
   public pendingRemoval: boolean = false;
   public currentPulseRadius: number = 0;
   public isSnapping: boolean = false;
+  public isResonant: boolean = false;
+  public resonanceTimer: number = 0;
 
   constructor(x: number, y: number, gridX: number, gridY: number, level: number = 1, type: NodeType = NodeType.STANDARD) {
     this.x = x;
@@ -35,10 +37,15 @@ export class GameNode {
   }
 
   public update(cellSize: number, gridSize: number, deltaTime: number) {
-    // Smooth interpolation towards target position (time-scaled)
-    const lerpFactor = 1 - Math.exp(-10 * deltaTime / 1000);
-    this.x += (this.targetX - this.x) * lerpFactor;
-    this.y += (this.targetY - this.y) * lerpFactor;
+    if (this.isDragging) {
+      this.x = this.targetX;
+      this.y = this.targetY;
+    } else {
+      // Smooth interpolation towards target position (time-scaled)
+      const lerpFactor = 1 - Math.exp(-10 * deltaTime / 1000);
+      this.x += (this.targetX - this.x) * lerpFactor;
+      this.y += (this.targetY - this.y) * lerpFactor;
+    }
 
     // Update grid coordinates based on current position
     this.gridX = Math.max(0, Math.min(gridSize - 1, Math.floor(this.x / cellSize)));
@@ -47,6 +54,15 @@ export class GameNode {
     // Smoothly return scale to 1 (squash and stretch recovery)
     const scaleLerp = 1 - Math.exp(-15 * deltaTime / 1000);
     this.scale += (1 - this.scale) * scaleLerp;
+
+    // Resonance buff timer decay
+    if (this.isResonant) {
+      this.resonanceTimer -= deltaTime;
+      if (this.resonanceTimer <= 0) {
+        this.isResonant = false;
+        this.resonanceTimer = 0;
+      }
+    }
   }
 
   public get scoreValue(): number {

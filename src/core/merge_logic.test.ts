@@ -38,8 +38,11 @@ describe('Mechanical Integrity: Merge Truth Table', () => {
         });
         return map;
       },
+      triggerHaptic: vi.fn(),
       logEvent: vi.fn(),
       pulseHUD: vi.fn(),
+      triggerFlash: vi.fn(),
+      triggerTimeSlow: vi.fn(),
     };
   });
 

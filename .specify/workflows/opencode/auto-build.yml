@@ -1,0 +1,103 @@
+schema_version: "1.0"
+workflow:
+  id: "opencode-auto-build"
+  name: "OpenCode Auto-Build"
+  version: "1.0.0"
+  description: >
+    Intelligent auto-build workflow. You say what you want in plain English;
+    the system detects intent and routes through the correct SpecKit steps.
+
+inputs:
+  request:
+    type: string
+    required: true
+    prompt: "What do you want to do?"
+  integration:
+    type: string
+    default: "opencode"
+    prompt: "Integration to use"
+
+steps:
+  - id: detect-intent
+    command: speckit.clarify
+    integration: "{{ inputs.integration }}"
+    input:
+      args: >
+        Classify this request: "{{ inputs.request }}"
+        Run: node .specify/scripts/opencode/intent-router.js "{{ inputs.request }}"
+        Use the output to determine which steps to run next.
+
+  - id: clarify-if-needed
+    type: gate
+    message: "Intent classification complete. Proceed with the detected workflow path?"
+    options: [approve, reject, clarify]
+    on_reject: abort
+
+  - id: specify
+    command: speckit.specify
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "{{ inputs.request }}"
+    when: "steps.detect-intent.output.intent in ['full-cycle', 'specify']"
+
+  - id: review-spec
+    type: gate
+    message: "Review the spec before planning."
+    options: [approve, reject]
+    on_reject: abort
+    when: "steps.detect-intent.output.intent in ['full-cycle', 'specify']"
+
+  - id: plan
+    command: speckit.plan
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "{{ inputs.request }}"
+    when: "steps.detect-intent.output.intent in ['full-cycle', 'fix', 'plan']"
+
+  - id: review-plan
+    type: gate
+    message: "Review the plan before generating tasks."
+    options: [approve, reject]
+    on_reject: abort
+    when: "steps.detect-intent.output.intent in ['full-cycle', 'fix', 'plan']"
+
+  - id: tasks
+    command: speckit.tasks
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "{{ inputs.request }}"
+    when: "steps.detect-intent.output.intent in ['full-cycle', 'fix']"
+
+  - id: implement
+    command: speckit.implement
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "{{ inputs.request }}"
+    when: "steps.detect-intent.output.intent in ['full-cycle', 'fix']"
+
+  - id: checklist
+    command: speckit.checklist
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "{{ inputs.request }}"
+    when: "steps.detect-intent.output.intent in ['full-cycle', 'checklist']"
+
+  - id: analyze
+    command: speckit.analyze
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "{{ inputs.request }}"
+    when: "steps.detect-intent.output.intent in ['full-cycle', 'fix', 'analyze']"
+
+  - id: clarify
+    command: speckit.clarify
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "{{ inputs.request }}"
+    when: "steps.detect-intent.output.intent == 'clarify' or steps.detect-intent.output.intent == 'unknown'"
+
+  - id: final-summary
+    command: speckit.analyze
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Summarize what was accomplished for: {{ inputs.request }}"
